@@ -2430,12 +2430,7 @@
       numInput('o_plast','Plasty obyv./nádobu','70')+numInput('o_sklo','Sklo obyv./nádobu','90')+numInput('o_bio','BIO obyv./nádobu','50')+
       numInput('m_kocik','os. / 1 m² kočikárne+bicyklárne','30')+
       '</div><div id="odpadOut"></div></div>';
-    var gdv='<div class="card"><h2>Odhad tržieb (GDV) — voliteľné</h2><p class="hint">Orientačné ceny za m². Výpočet = plocha × cena.</p>'+
-      '<div class="norm">'+
-      numInput('p_byt','€/m² byty','2500')+numInput('p_apart','€/m² apartmány','2300')+
-      numInput('p_obchod','€/m² obchodné','2200')+numInput('p_sklad','€/m² sklady','900')+
-      '</div><div id="gdvOut"></div></div>';
-    return obyv+park+odpad+gdv;
+    return obyv+park+odpad;
   }
   function numInput(id,label,def){ return '<label>'+esc(label)+'<input type="number" id="'+id+'" value="'+def+'" step="any" min="0"></label>'; }
   function val(id){ var e=document.getElementById(id); return e?parseFloat(e.value)||0:0; }
@@ -2478,16 +2473,8 @@
         ['Sklo',fmt(val('o_sklo'),0),nad(val('o_sklo'))],
         ['BIO (bioodpad)',fmt(val('o_bio'),0),nad(val('o_bio'))]
       ],['Kočikáreň / bicykláreň m² (orient.)','',fmt(val('m_kocik')>0?os/val('m_kocik'):0,1)]);
-      // GDV
-      var gdv=T.byt.interior*val('p_byt')+T.apartman.interior*val('p_apart')+T.obchod.interior*val('p_obchod')+T.sklad.interior*val('p_sklad');
-      document.getElementById('gdvOut').innerHTML=makeTable(['Typ','Plocha m²','€/m²','Odhad €'],[
-        ['Byty',fmt(T.byt.interior),fmt(val('p_byt'),0),fmt(T.byt.interior*val('p_byt'),0)],
-        ['Apartmány',fmt(T.apartman.interior),fmt(val('p_apart'),0),fmt(T.apartman.interior*val('p_apart'),0)],
-        ['Obchodné',fmt(T.obchod.interior),fmt(val('p_obchod'),0),fmt(T.obchod.interior*val('p_obchod'),0)],
-        ['Sklady',fmt(T.sklad.interior),fmt(val('p_sklad'),0),fmt(T.sklad.interior*val('p_sklad'),0)]
-      ],['SPOLU (GDV)','','',fmt(gdv,0)]);
     }
-    ['obl_1','obl_2','obl_3','obl_4','obl_apart','pw1','pw2','pw3','pw4','pw_apart','p_m2stoj','p_ka','p_kmp','p_kd','cap','o_zko','o_papier','o_plast','o_sklo','o_bio','m_kocik','p_byt','p_apart','p_obchod','p_sklad'].forEach(function(id){
+    ['obl_1','obl_2','obl_3','obl_4','obl_apart','pw1','pw2','pw3','pw4','pw_apart','p_m2stoj','p_ka','p_kmp','p_kd','cap','o_zko','o_papier','o_plast','o_sklo','o_bio','m_kocik'].forEach(function(id){
       var e=document.getElementById(id); if(e) e.addEventListener('input',recompute);
     });
     recompute();
