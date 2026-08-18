@@ -1374,10 +1374,13 @@
       garazRooms: garazRooms,
       rooms: allRooms
     };
+    // Bilancie sčítavajú klasifikované plochy priamo a fungujú aj pri CSV bez
+    // riadku „PODLAHOVÁ PLOCHA CELKOVÁ“. Štatistiky ich preto môžu použiť ako
+    // bezpečný zdroj spoločných plôch namiesto záporného reziduálneho výpočtu.
+    model.bilancie = computeBilancie(model);
     model.stats = computeStats(model);
     model.checks = computeChecks(model);
     model.checks.levelMismatch = levelMismatch;   // pv-n11: nesúlad rozpiska ↔ kódy podlažia
-    model.bilancie = computeBilancie(model);
     return model;
   }
 
@@ -1499,7 +1502,11 @@
     var floorTotal = sum(model.floors, function (fl) { return fl.floorTotalCsv; });
     totals.predajnaInterior = predajna;
     totals.podlahovaCelkova = floorTotal;
-    totals.spolocneTechnicke = floorTotal - predajna - totals.garaz.interior;
+    var directCommon = model.bilancie && model.bilancie.byOwn && model.bilancie.byOwn['Spoločné']
+      ? model.bilancie.byOwn['Spoločné'].total : 0;
+    totals.spolocneTechnicke = floorTotal > 0
+      ? floorTotal - predajna - totals.garaz.interior
+      : directCommon;
     totals.koefPredajnosti = floorTotal > 0 ? predajna / floorTotal : null;
 
     // dispozície (izbovosť) — byty a apartmány zvlášť

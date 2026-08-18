@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const assert = require('assert');
 
 const repo = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(repo, 'analyza-budovy.html'), 'utf8');
@@ -26,6 +27,12 @@ const totals = model.stats.totals;
 const noisy = model.stats.roomTypeRows.filter((row) =>
   /HLAVN[YÝ] PROJEKTANT|D[AÁ]TUM|ZODPOVED|ZK\d|W1[AB]/i.test(row.name)
 );
+
+assert.strictEqual(files.length, 10, 'Testovacia sada Topoľčianska musí obsahovať 10 CSV.');
+assert.ok(Math.abs(totals.spolocneTechnicke - 1694.47) < 0.001,
+  'CSV bez celkového medzisúčtu musí použiť priamy súčet spoločných plôch.');
+assert.ok(totals.spolocneTechnicke >= 0, 'Spoločná plocha nesmie byť záporná.');
+assert.strictEqual(noisy.length, 0, 'Text pečiatky nesmie skončiť medzi typmi miestností.');
 
 console.log(JSON.stringify({
   files: files.length,
