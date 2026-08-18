@@ -97,7 +97,7 @@
   #sec-ekonomika>.card>h2:first-child:before{content:"◇";display:inline-grid;place-items:center;flex:0 0 34px;width:34px;height:34px;margin:0;border-radius:10px;color:var(--blue);background:linear-gradient(145deg,#F6F9FF,#E7EFFF);box-shadow:inset 0 0 0 1px #D7E3FA,0 3px 8px rgba(21,94,239,.1);font-size:17px;font-weight:800;vertical-align:0}
   .ek-project>h2:first-child:before{content:"◆"!important}.ek-summary>h2:first-child:before{content:"▦"!important}.ek-charts>h2:first-child:before{content:"↗"!important}
   .ek-income>h2:first-child:before{content:"€"!important}.ek-construction>h2:first-child:before{content:"⌁"!important}.ek-complete>h2:first-child:before{content:"Σ"!important}
-  .ek-map>h2:first-child:before{content:"⌘"!important}.ek-kataster>h2:first-child:before{content:"⌖"!important}.ek-competitors>h2:first-child:before{content:"◎"!important}
+  .ek-kataster>h2:first-child:before{content:"⌖"!important}.ek-competitors>h2:first-child:before{content:"◎"!important}
   #sec-ekonomika>.card>.hint{max-width:1040px;margin-top:5px;margin-bottom:17px;line-height:1.55}
   .ek-project{overflow:hidden;background:linear-gradient(135deg,#FFFFFF 0%,#F5F8FF 72%,#EDF3FF 100%)}
   .ek-project:after{content:"LIVE MODEL";position:absolute;right:22px;top:20px;padding:5px 9px;border:1px solid #B8E4D4;border-radius:999px;color:#087A55;background:#ECFDF6;font-size:9px;font-weight:800;letter-spacing:.1em}
@@ -153,7 +153,7 @@
   .ek-income th:nth-child(1){width:25%}.ek-income th:nth-child(2),.ek-income th:nth-child(3),.ek-income th:nth-child(4),.ek-income th:nth-child(5){width:12.5%}.ek-income th:nth-child(6),.ek-income th:nth-child(7){width:15%}.ek-income th:last-child{width:42px}
   .ek-construction th:first-child{width:38%}.ek-construction th:nth-child(2),.ek-construction th:nth-child(3){width:20%}.ek-construction th:nth-child(4){width:22%}.ek-construction th:last-child{width:42px}
   .ek-complete th:first-child{width:34%}.ek-complete th:nth-child(2){width:31%}.ek-complete th:nth-child(3),.ek-complete th:nth-child(4){width:17.5%}.ek-complete th:last-child{width:42px}
-  .ek-map table,.ek-kataster table{min-width:720px}
+  .ek-kataster table{min-width:720px}
   .ek-competitors>div[style*="border:1px solid var(--line)"]{position:relative;border-color:#D8E1ED!important;border-radius:11px!important;padding:14px 16px!important;margin-bottom:10px!important;background:linear-gradient(135deg,#fff,#F8FAFD)!important;box-shadow:0 1px 2px rgba(16,24,40,.04);transition:transform .16s,border-color .16s,box-shadow .16s}
   .ek-competitors>div[style*="border:1px solid var(--line)"]:hover{transform:translateY(-1px);border-color:#AFC4E8!important;box-shadow:0 8px 20px rgba(16,24,40,.07)}
   .ek-competitors>div[style*="border:1px solid var(--line)"] label{color:#667085!important;font-weight:650}
@@ -2706,48 +2706,6 @@
     ekApplySources(src); ekRerender();
   }
 
-  /* ---------- Mapovanie plôch (p0-n1): odkiaľ sa berie ktorá plocha ---------- */
-  var EK_SRC_LABELS = {
-    resiInterior:  'Byty + apartmány — interiér',
-    resiExterior:  'Byty/apart. — exteriér spolu (do príjmov)',
-    balkony:       'Balkóny / lodžie — exteriér (stavba)',
-    terasy:        'Terasy — exteriér (stavba; aj obchodné/samostatné)',
-    obchodInterior:'Obchodné priestory — interiér',
-    skladInterior: 'Sklady / kobky — interiér',
-    garazInterior: 'Garáže — interiér',
-    spolocne:      'Spoločné a technické priestory'
-  };
-  var EK_SRC_ORDER = ['resiInterior','resiExterior','balkony','terasy','obchodInterior','skladInterior','garazInterior','spolocne'];
-  // pre každý zdroj plochy nájde riadky modelu (príjmy+stavba), ktoré ho používajú
-  function ekSourceUsage(p){
-    var use={}; EK_SRC_ORDER.forEach(function(s){ use[s]=[]; });
-    (p.income||[]).forEach(function(r){
-      if(r.src1 && use[r.src1]) use[r.src1].push('Príjmy: '+(r.label||''));
-      if(r.src2 && use[r.src2]) use[r.src2].push('Príjmy: '+(r.label||'')+' (zložka 2)');
-    });
-    (p.stavba||[]).forEach(function(r){ if(r.src && use[r.src]) use[r.src].push('Stavba: '+(r.label||'')); });
-    return use;
-  }
-  function ekMapCard(p){
-    var src=ekAreaSources();                 // aktuálne plochy z analýzy (alebo null)
-    var use=ekSourceUsage(p);
-    var rows=EK_SRC_ORDER.map(function(s){
-      var val = src ? (fmt(ekR2(src[s]||0))+' m²') : '<span style="color:#94a3b8">— (nahraj analýzu)</span>';
-      var used = use[s].length ? use[s].map(esc).join(' · ') : '<span style="color:#94a3b8">nepoužité</span>';
-      return '<tr><td>'+esc(EK_SRC_LABELS[s])+'</td><td style="text-align:right;font-variant-numeric:tabular-nums">'+val+'</td><td style="font-size:12.5px">'+used+'</td></tr>';
-    }).join('');
-    var manual=[];
-    (p.income||[]).forEach(function(r){ if(!r.src1 && !r.src2) manual.push('Príjmy: '+(r.label||'')); });
-    (p.stavba||[]).forEach(function(r){ if(!r.src) manual.push('Stavba: '+(r.label||'')); });
-    return '<div class="card ek-map"><h2>Mapovanie plôch</h2>'+
-      '<p class="hint">Odkiaľ sa berie ktorá plocha pri tlačidle <b>„Načítať plochy z analýzy"</b>. '+
-      'Každý zdroj = kategória z analýzy (záložky vľavo); riadky bez zdroja sa zadávajú ručne '+
-      '(napr. státia v kusoch, terasy, spevnené plochy). Pri vlastnom projekte sa väzby prispôsobia jeho riadkom.</p>'+
-      '<table><thead><tr><th>Zdroj plochy (z analýzy)</th><th>Aktuálne m²</th><th>Použité v riadkoch modelu</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-      (manual.length? '<p class="hint" style="margin-top:8px"><b>Ručné riadky (bez väzby na analýzu):</b> '+manual.map(esc).join(' · ')+'</p>':'')+
-      '</div>';
-  }
-
   /* ---------- Kataster: parcely → verejné údaje z ESKN/ZBGIS (cez pomocníka) ----------
      Backend /api/kataster (tools/kataster.py): číslo (+ k.ú.) → výmera, druh pozemku,
      kat. územie, č. LV. Vlastníci sú OSOBNÉ ÚDAJE za reCAPTCHA → neťaháme, len link na portál.
@@ -3333,7 +3291,7 @@
       '<h2 style="margin-top:16px;font-size:16px">Priemer €/m² podľa dispozície</h2>'+
       '<table style="max-width:340px"><thead><tr><th>Dispozícia</th><th>Priemer €/m²</th></tr></thead><tbody>'+avgRows+'</tbody></table></div>';
 
-    return ekMarketingHero(p,c)+head+sum+ekChartsCard(p,c)+income+stavba+naklady+ekMapCard(p)+ekKatCard(p)+predaj;
+    return ekMarketingHero(p,c)+head+sum+ekChartsCard(p,c)+income+stavba+naklady+ekKatCard(p)+predaj;
   }
 
   // aktualizuje len výstupné bunky (nezahodí fokus vstupu počas písania)

@@ -15,5 +15,7 @@ assert(html.includes("el.closest('.ek-competitor')"), 'Prepojené polia konkuren
 assert(html.includes("ek_o_stavbaOstatneSdph2"), 'Kompletné náklady musia ukázať Stavba + ostatné s DPH');
 assert(html.includes('function escAttr(s)'), 'Hodnoty HTML atribútov musia byť escapované');
 assert(html.includes('function ekCompPrice(c)'), 'Konkurencia musí mať jeden zdroj jednotkovej ceny');
+assert(!html.includes('Mapovanie plôch'), 'Interné mapovanie plôch sa nemá zobrazovať ako samostatná karta');
+assert(!html.includes('ekMapCard('), 'Odstránená karta mapovania sa nesmie renderovať');
 
 console.log('economics-regressions: PASS');
