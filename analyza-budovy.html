@@ -1281,6 +1281,15 @@
       // bežná miestnosť (beznázvové riadky preskočíme)
       if (!name) continue;
       var rc = roomCategory(name);
+      // Poloha v jednotke určuje vlastníctvo. „Neobytná miestnosť“ v byte/apartmáne
+      // je predajná súčasť jednotky, iba sa nezapočíta do obytnej izbovosti.
+      if (openUnit && /^NEOBYTNA MIESTNOST/.test(dname)) {
+        rc = { cat: 'NEBYTOVÉ PRIESTORY', living: false };
+      }
+      // Práčovňa v jednotke je jej príslušenstvo, nie spoločná technická plocha.
+      if (openUnit && /^PRACOVNA/.test(dname)) {
+        rc = { cat: 'HYGIENA', living: false };
+      }
       // Samostatná práčovňa/neobytná miestnosť mimo predajnej jednotky je spoločná technická plocha.
       if (!openUnit && /^(PRACOVNA|NEOBYTNA MIESTNOST)/.test(dname)) {
         rc = { cat: 'TECHNICKÉ PRIESTORY', living: false };
