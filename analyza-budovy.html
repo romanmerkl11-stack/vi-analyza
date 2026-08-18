@@ -1073,7 +1073,13 @@
 
   // kategória miestnosti pre štatistiku povrchov / typov / kontrolu
   var _catOverrides = {};
-  function setCategoryOverrides(map) { _catOverrides = map || {}; }
+  function setCategoryOverrides(map) {
+    _catOverrides = map || {};
+    // Migrácia starého názvu po oddelení predajných nebytových a spoločných technických plôch.
+    for (var k in _catOverrides) {
+      if (_catOverrides[k] === 'TECHNICKÉ / NEBYTOVÉ') _catOverrides[k] = 'TECHNICKÉ PRIESTORY';
+    }
+  }
   function catFlags(cat) {
     return { cat: cat, living: cat === 'OBYTNÁ', spaciKut: cat === 'SPACÍ KÚT',
              sklad: cat === 'SKLAD', garaz: cat === 'GARÁŽ / PARKOVANIE',
@@ -1108,8 +1114,8 @@
     if (/^(VSTUPNA PREDSIEN|VSTUPNA HALA|POZIARNA PREDSIEN|PREDSIEN|CHODBA|SATNIK|VSTUPNE PRIESTOR|ZADVERIE)/.test(d)) return { cat: 'KOMUNIKÁCIA', living: false };
     if (/^SKLAD\b/.test(d) || /^KOMORA/.test(d)) return { cat: 'SKLAD', living: false, sklad: true };
     if (/^(PARKOVAC|PARKOVISK|PARKOVANI|STATIE|STALIE)/.test(d) || /GARAZ/.test(d)) return { cat: 'GARÁŽ / PARKOVANIE', living: false, garaz: true };
-    // TECHNICKÉ / NEBYTOVÉ — Roman: ak je v názve „tech." → technická. Kľúčové slová KDEKOĽVEK.
-    if (/\bTECH\b|TECHNICK|KOTOLN|ELEKTROROZVOD|ODPAD|UPRATOVAC|\bEPS\b|\bUPS\b|BATERIE|STROJOVN|VYMENIKOV|SERVEROV|NEOBYTNA|PRACOVN|INY NEBYTOVY|PRE SPRAVCU|PRACOVN/.test(d)) return { cat: 'TECHNICKÉ / NEBYTOVÉ', living: false };
+    // TECHNICKÉ PRIESTORY sú spoločné; predajné kancelárie/obchody majú vlastnú kategóriu.
+    if (/\bTECH\b|TECHNICK|KOTOLN|ELEKTROROZVOD|ODPAD|UPRATOVAC|\bEPS\b|\bUPS\b|BATERIE|STROJOVN|VYMENIKOV|SERVEROV|PRE SPRAVCU/.test(d)) return { cat: 'TECHNICKÉ PRIESTORY', living: false };
     if (/^VEREJN/.test(d)) return { cat: 'VEREJNÉ', living: false };
     return { cat: 'INÉ (NA OVERENIE)', living: false, unknown: true };
   }
@@ -1275,6 +1281,10 @@
       // bežná miestnosť (beznázvové riadky preskočíme)
       if (!name) continue;
       var rc = roomCategory(name);
+      // Samostatná práčovňa/neobytná miestnosť mimo predajnej jednotky je spoločná technická plocha.
+      if (!openUnit && /^(PRACOVNA|NEOBYTNA MIESTNOST)/.test(dname)) {
+        rc = { cat: 'TECHNICKÉ PRIESTORY', living: false };
+      }
       // Generický názov „MIESTNOSŤ“ v predajnej nebytovej jednotke nie je obytná izba.
       // Plocha ostáva súčasťou jednotky a Ekonomiky, kategória je nebytová.
       if (openUnit && openUnit.type === 'OBCHODNÝ PRIESTOR' && /^MIESTNOST$/.test(dname)) {
@@ -1425,7 +1435,7 @@
       if (r.unitCode || r.sklad || r.garaz) return;      // už započítané cez jednotku / sklad / garáž
       var f;
       if (r.cat === 'KOMUNIKÁCIA' || r.cat === 'SPOLOČNÉ KOMUNIKÁCIE') f = 'Komunikácie';
-      else if (r.cat === 'TECHNICKÉ / NEBYTOVÉ') f = 'Technické';
+      else if (r.cat === 'TECHNICKÉ PRIESTORY') f = 'Technické';
       else if (r.cat === 'NEBYTOVÉ PRIESTORY') f = 'Obchod a služby';
       else if (r.cat === 'KANCELÁRIA') f = 'Kancelárie';
       else f = 'Ostatné';
@@ -1705,7 +1715,7 @@
   var CAT_LEARN_KEY='vi_cat_overrides_v1';
   var catOverrides = (function(){ try{ return JSON.parse(localStorage.getItem(CAT_LEARN_KEY)||'{}')||{}; }catch(e){ return {}; } })();
   try{ Core.setCategoryOverrides(catOverrides); }catch(e){}   // aplikuj naučené hneď na štarte
-  var CATS = ['OBYTNÁ','KUCHYŇA','HYGIENA','KOMUNIKÁCIA','SPOLOČNÉ KOMUNIKÁCIE','EXTERIÉR','SKLAD','GARÁŽ / PARKOVANIE','NEBYTOVÉ PRIESTORY','TECHNICKÉ / NEBYTOVÉ','VEREJNÉ','SPACÍ KÚT','INÉ (NA OVERENIE)'];
+  var CATS = ['OBYTNÁ','KUCHYŇA','HYGIENA','KOMUNIKÁCIA','SPOLOČNÉ KOMUNIKÁCIE','EXTERIÉR','SKLAD','GARÁŽ / PARKOVANIE','NEBYTOVÉ PRIESTORY','TECHNICKÉ PRIESTORY','VEREJNÉ','SPACÍ KÚT','INÉ (NA OVERENIE)'];
   function catSelect(name,cur){
     var opts=CATS.map(function(c){return '<option'+(c===cur?' selected':'')+'>'+esc(c)+'</option>';}).join('');
     if(CATS.indexOf(cur)<0) opts='<option selected>'+esc(cur)+'</option>'+opts;
