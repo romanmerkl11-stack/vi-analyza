@@ -1742,6 +1742,7 @@
     return Number(v).toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2})+s;
   }
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escAttr(s){ return esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
   /* ---------- prezentačné UI ---------- */
   function setViewMode(mode){
@@ -2154,7 +2155,7 @@
         makeTable(['Blok / SO','Byty','Apart.','Obch.','Sklady','Garáže','Byty m²','Apart. m²','Obch. m²','Sklady m²'],rows));
     }
     if(key==='jednotky'){
-      var blockOpts=model.blocks.map(function(b){return '<option value="'+esc(b.roman)+'">Blok '+esc(b.roman)+(b.so?' (SO '+(b.so.length<2?'0'+b.so:b.so)+')':'')+'</option>';}).join('');
+      var blockOpts=model.blocks.map(function(b){return '<option value="'+escAttr(b.roman)+'">Blok '+esc(b.roman)+(b.so?' (SO '+(b.so.length<2?'0'+b.so:b.so)+')':'')+'</option>';}).join('');
       var ctrl='<div class="filter no-print">'+
         '<input id="jq" placeholder="hľadať (kód, typ, podlažie…)" style="min-width:220px">'+
         '<select id="jtype"><option value="">všetky typy</option><option>BYT</option><option>APARTMÁN</option><option>OBCHODNÝ PRIESTOR</option><option>SKLAD</option></select>'+
@@ -2410,6 +2411,8 @@
   }
 
   /* ---------- panely noriem (odhady) ---------- */
+  var NORM_KEY='vi_normy_v1';
+  var normValues=(function(){try{return JSON.parse(localStorage.getItem(NORM_KEY)||'{}')||{};}catch(e){return {};}})();
   function renderNorms(){
     var obyv='<div class="card"><h2>Počet obyvateľov</h2><p class="hint">Obyvatelia = Σ (počet bytov danej izbovosti × koeficient obložnosti) + apartmány × obložnosť. Predvolené koeficienty podľa POMOCNA / VZN.</p>'+
       '<div class="norm">'+
@@ -2432,7 +2435,7 @@
       '</div><div id="odpadOut"></div></div>';
     return obyv+park+odpad;
   }
-  function numInput(id,label,def){ return '<label>'+esc(label)+'<input type="number" id="'+id+'" value="'+def+'" step="any" min="0"></label>'; }
+  function numInput(id,label,def){ var v=normValues[id]!=null?normValues[id]:def; return '<label>'+esc(label)+'<input type="number" id="'+id+'" value="'+escAttr(v)+'" step="any" min="0"></label>'; }
   function val(id){ var e=document.getElementById(id); return e?parseFloat(e.value)||0:0; }
   function wireNorms(){
     if(!document.getElementById('obyvOut')) return;
@@ -2464,8 +2467,8 @@
         ['Skutočná kapacita (zadaná)',cap],
         [raw('<b>Bilancia</b>'),raw('<b class="'+(diff>=0?'ok':'bad')+'">'+(diff>=0?'+':'')+diff+'</b>')]
       ]);
-      // odpady (VZN – nádob = round(obyvatelia / obyv na nádobu))
-      function nad(x){ return x>0?Math.round(os/x):0; }
+      // odpady (VZN – kapacitná potreba sa zaokrúhľuje nahor)
+      function nad(x){ return x>0?Math.ceil(os/x):0; }
       document.getElementById('odpadOut').innerHTML=makeTable(['Zložka','Obyv./nádobu','Počet nádob'],[
         ['ZKO (zmesový)',fmt(val('o_zko'),0),nad(val('o_zko'))],
         ['Papier',fmt(val('o_papier'),0),nad(val('o_papier'))],
@@ -2475,7 +2478,7 @@
       ],['Kočikáreň / bicykláreň m² (orient.)','',fmt(val('m_kocik')>0?os/val('m_kocik'):0,1)]);
     }
     ['obl_1','obl_2','obl_3','obl_4','obl_apart','pw1','pw2','pw3','pw4','pw_apart','p_m2stoj','p_ka','p_kmp','p_kd','cap','o_zko','o_papier','o_plast','o_sklo','o_bio','m_kocik'].forEach(function(id){
-      var e=document.getElementById(id); if(e) e.addEventListener('input',recompute);
+      var e=document.getElementById(id); if(e) e.addEventListener('input',function(){normValues[id]=this.value;try{localStorage.setItem(NORM_KEY,JSON.stringify(normValues));}catch(err){}recompute();});
     });
     recompute();
   }
@@ -2628,8 +2631,20 @@
   }
   function ekBlankProject(){
     return {id:ekUid('proj'), name:'Nový projekt', dph:0.23,
-      income:[{id:ekUid('i'),label:'Byty / apartmány',a1:0,r1:0,a2:0,r2:0,u1:'m²',u2:'balkón m²',src1:'resiInterior',src2:'resiExterior'}],
-      stavba:[{id:ekUid('c'),label:'Byty',a:0,r:0,src:'resiInterior'}],
+      income:[
+        {id:ekUid('i'),label:'Byty / apartmány',a1:0,r1:0,a2:0,r2:0,u1:'m²',u2:'balkón m²',src1:'resiInterior',src2:'resiExterior'},
+        {id:ekUid('i'),label:'Obchodné priestory',a1:0,r1:0,a2:0,r2:0,u1:'m²',src1:'obchodInterior'},
+        {id:ekUid('i'),label:'Sklady / kobky',a1:0,r1:0,a2:0,r2:0,u1:'m²',src1:'skladInterior'}
+      ],
+      stavba:[
+        {id:ekUid('c'),label:'Byty / apartmány',a:0,r:0,src:'resiInterior'},
+        {id:ekUid('c'),label:'Obchodné priestory',a:0,r:0,src:'obchodInterior'},
+        {id:ekUid('c'),label:'Balkóny / lodžie',a:0,r:0,src:'balkony'},
+        {id:ekUid('c'),label:'Terasy',a:0,r:0,src:'terasy'},
+        {id:ekUid('c'),label:'Spoločné a technické priestory',a:0,r:0,src:'spolocne'},
+        {id:ekUid('c'),label:'Garáže',a:0,r:0,src:'garazInterior'},
+        {id:ekUid('c'),label:'Sklady / kobky',a:0,r:0,src:'skladInterior'}
+      ],
       ownShare:0.45, ostatneBase:0,
       naklady:[{id:ekUid('n'),label:'Projekt management',mode:'pct',pct:0.06,base:'stavbaOstatne'}],
       competitors:[]};
@@ -2779,12 +2794,12 @@
     var k=ekKat(p);
     var rozp = (lastRozpiska && lastRozpiska.parcels) ? ekKatParseNumbers(lastRozpiska.parcels).length : 0;
     var rows=k.rows.map(function(r,i){
-      var num='<input type="text" data-ek="katrow" data-idx="'+i+'" data-f="number" value="'+esc(r.number||'')+'" '+
+      var num='<input type="text" data-ek="katrow" data-idx="'+i+'" data-f="number" value="'+escAttr(r.number||'')+'" '+
         'style="width:92px;padding:3px 5px;border:1px solid #cbd5e1;border-radius:5px;font:inherit;font-size:13px">';
       var st=r.status, cell;
       if(st==='loading') cell='<td colspan="4" style="color:#64748b">…hľadám</td>';
       else if(st==='ok'){
-        var portal=r.deeplink?'<a href="'+esc(r.deeplink)+'" target="_blank" rel="noopener" title="Otvor kataster (vlastníkov ukáže portál)">portál ↗</a>':'';
+        var portal=r.deeplink?'<a href="'+escAttr(r.deeplink)+'" target="_blank" rel="noopener" title="Otvor kataster (vlastníkov ukáže portál)">portál ↗</a>':'';
         cell='<td style="text-align:right;font-variant-numeric:tabular-nums">'+(r.vymera!=null?fmt(r.vymera)+' m²':'—')+'</td>'+
              '<td>'+esc(r.druh||('id '+(r.druh_id!=null?r.druh_id:'?')))+'</td>'+
              '<td>'+esc(r.ku_name||'')+(r.ku_code?' <small>('+esc(r.ku_code)+')</small>':'')+(r.more?' <small style="color:#b45309" title="Rovnaké číslo aj v inom k.ú. — over k.ú.">+'+r.more+'</small>':'')+'</td>'+
@@ -2799,7 +2814,7 @@
       '(<b>výmera, druh pozemku, kat. územie, číslo LV</b>). Vlastníci sú osobné údaje za reCAPTCHA — '+
       'tie ukáže oficiálny <b>portál</b> (odkaz v riadku). Funguje cez appku spustenú pomocníkom.</p>'+
       '<div class="filter no-print" style="align-items:center;gap:8px;flex-wrap:wrap">'+
-        '<label>Katastrálne územie: <input type="text" data-ek="kat" data-f="ku" value="'+esc(k.ku||'')+'" placeholder="napr. Veľká Bytča alebo 807745" '+
+        '<label>Katastrálne územie: <input type="text" data-ek="kat" data-f="ku" value="'+escAttr(k.ku||'')+'" placeholder="napr. Veľká Bytča alebo 807745" '+
           'style="min-width:220px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:5px;font:inherit"></label>'+
         '<button class="btn" data-ekact="katlookup">🔎 Vyhľadať v katastri</button>'+
         '<button class="btn sec" data-ekact="katadd">+ Pridať parcelu</button>'+
@@ -2842,9 +2857,10 @@
       nkLines:nkLines, nakladyBez:nakladyBez, nakladySdph:ekR2(nakladyBez*dph),
       zisk:zisk, ziskSdph:ekR2(zisk*dph), marza: prijmyBez>0? zisk/prijmyBez : null};
   }
+  function ekCompPrice(c){ var a=ekNum(c.area),b=ekNum(c.bez),v=ekNum(c.eurm2); return a>0&&b>0?b/a:v; }
   function ekCompAverages(p){
-    var g={}; (p.competitors||[]).forEach(function(c){ var t=c.type||'—'; if(!g[t]) g[t]={s:0,n:0}; var v=ekNum(c.eurm2); if(v>0){ g[t].s+=v; g[t].n++; } });
-    var out={}; Object.keys(g).forEach(function(t){ out[t]= g[t].n? ekR2(g[t].s/g[t].n) : 0; }); return out;
+    var g={}; (p.competitors||[]).forEach(function(c){ var t=c.type||'—',a=ekNum(c.area),v=ekCompPrice(c); if(!g[t]) g[t]={weighted:0,area:0,sum:0,n:0}; if(v>0){g[t].sum+=v;g[t].n++;if(a>0){g[t].weighted+=v*a;g[t].area+=a;}} });
+    var out={}; Object.keys(g).forEach(function(t){var x=g[t];out[t]=x.area?ekR2(x.weighted/x.area):(x.n?ekR2(x.sum/x.n):0);}); return out;
   }
   // cena s DPH = cena bez DPH × (1+DPH) — vždy dopočítaná, netreba vpisovať
   function ekCompSdph(p,cc){ return ekR2(ekNum(cc.bez)*(1+(p.dph||0))); }
@@ -2853,8 +2869,8 @@
   function ekCompTotals(p){
     var A=0,B=0,S=0,Aw=0,Bw=0;
     (p.competitors||[]).forEach(function(cc){
-      var a=ekNum(cc.area), b=ekNum(cc.bez); A+=a; B+=b; S+=ekCompSdph(p,cc);
-      if(a>0 && b>0){ Aw+=a; Bw+=b; }        // priemer €/m² len z riadkov s cenou (bez „Info v RK")
+      var a=ekNum(cc.area), b=ekNum(cc.bez),v=ekCompPrice(cc); A+=a; B+=b; S+=ekCompSdph(p,cc);
+      if(a>0 && v>0){ Aw+=a; Bw+=v*a; }
     });
     return {area:ekR2(A), bez:ekR2(B), sdph:ekR2(S), eurm2:(Aw>0?ekR2(Bw/Aw):0), count:(p.competitors||[]).length};
   }
@@ -2909,7 +2925,7 @@
       'style="width:'+(w||82)+'px;text-align:right;padding:3px 5px;border:1px solid #cbd5e1;border-radius:5px;font:inherit;font-size:13px">';
   }
   function ekText(scope,idx,f,val,w){
-    return '<input type="text" data-ek="'+scope+'" data-idx="'+idx+'" data-f="'+f+'" value="'+esc(val==null?'':val)+'" '+
+    return '<input type="text" data-ek="'+escAttr(scope)+'" data-idx="'+escAttr(idx)+'" data-f="'+escAttr(f)+'" value="'+escAttr(val==null?'':val)+'" '+
       'style="width:'+(w||110)+'px;padding:3px 5px;border:1px solid #cbd5e1;border-radius:5px;font:inherit;font-size:13px">';
   }
   function ekCompNum(idx,f,val,w){
@@ -3059,7 +3075,7 @@
     var cols=['#155EEF','#20A77A','#7A5AF8','#F79009','#E74C6F','#32B8C6','#667085','#84ADFF','#53B1A1'];
     var total=rows.reduce(function(a,r){return a+r.value;},0),at=0,stops=[];
     rows.forEach(function(r,i){var start=at/total*100;at+=r.value;var end=at/total*100;stops.push(cols[i%cols.length]+' '+start.toFixed(2)+'% '+end.toFixed(2)+'%');});
-    var legend=rows.slice(0,7).map(function(r,i){return '<div class="ek-donut-row"><span class="ek-donut-dot" style="background:'+cols[i%cols.length]+'"></span><span class="ek-donut-label" title="'+esc(r.label)+'">'+ekSvgEsc(r.label)+'</span><span class="ek-donut-value">'+(r.value/total*100).toFixed(0)+' %</span></div>';}).join('');
+    var legend=rows.slice(0,7).map(function(r,i){return '<div class="ek-donut-row"><span class="ek-donut-dot" style="background:'+cols[i%cols.length]+'"></span><span class="ek-donut-label" title="'+escAttr(r.label)+'">'+ekSvgEsc(r.label)+'</span><span class="ek-donut-value">'+(r.value/total*100).toFixed(0)+' %</span></div>';}).join('');
     return '<div class="ek-donut-layout"><div class="ek-donut" style="background:conic-gradient('+stops.join(',')+')"><div class="ek-donut-center"><b>'+ekSvgEsc(ekFmtEur(total))+'</b><span>'+ekSvgEsc(label)+'</span></div></div><div class="ek-donut-legend">'+legend+'</div></div>';
   }
   // HERO: veľké KPI dlaždice (Zisk zvýraznený) + merač marže s cieľovým pásmom 15–20 %
@@ -3086,14 +3102,14 @@
   function ekWaterfall(prijmy,naklady,zisk){
     return '<div class="profit-equation"><div class="profit-step income"><b>'+ekSvgEsc(ekFmtEur(prijmy))+'</b><span>Príjmy</span></div><div class="profit-operator">−</div><div class="profit-step cost"><b>'+ekSvgEsc(ekFmtEur(naklady))+'</b><span>Náklady</span></div><div class="profit-operator">=</div><div class="profit-step result"><b>'+ekSvgEsc(ekFmtEur(zisk))+'</b><span>Výsledný zisk</span></div></div>';
   }
-  function ekBenchmark(comp,our){
+  function ekBenchmark(comp,our,referenceAvg){
     var vals=comp.map(function(x){return x.value;});if(our>0)vals.push(our);if(!vals.length)return '';
-    var avg=comp.length?comp.reduce(function(a,x){return a+x.value;},0)/comp.length:0,min=Math.min.apply(null,vals),max=Math.max.apply(null,vals),range=Math.max(1,max-min),lo=Math.max(0,min-range*.14),hi=max+range*.14,W=520,H=126,x0=36,x1=484,y=66;
+    var area=comp.reduce(function(a,x){return a+(x.area||0);},0),avg=referenceAvg||0;if(!avg)avg=comp.length?(area?comp.reduce(function(a,x){return a+x.value*(x.area||0);},0)/area:comp.reduce(function(a,x){return a+x.value;},0)/comp.length):0;var min=Math.min.apply(null,vals),max=Math.max.apply(null,vals),range=Math.max(1,max-min),lo=Math.max(0,min-range*.14),hi=max+range*.14,W=520,H=126,x0=36,x1=484,y=66;
     function px(v){return x0+(v-lo)/(hi-lo)*(x1-x0);}var s='<div class="benchmark-summary">'+(our>0?'<div class="ours"><b>'+Math.round(our).toLocaleString('sk-SK')+' €</b><span>Naša cena / m²</span></div>':'')+(avg>0?'<div><b>'+Math.round(avg).toLocaleString('sk-SK')+' €</b><span>Priemer konkurencie</span></div>':'')+'</div><svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block" font-family="inherit" role="img" aria-label="Porovnanie ceny za meter štvorcový"><line x1="'+x0+'" y1="'+y+'" x2="'+x1+'" y2="'+y+'" stroke="#CBD5E1" stroke-width="3" stroke-linecap="round"/>';
     comp.forEach(function(r,i){var x=px(r.value),cy=y+(i%2?13:-13);s+='<line x1="'+x.toFixed(1)+'" y1="'+y+'" x2="'+x.toFixed(1)+'" y2="'+cy+'" stroke="#D6DDE7"/><circle cx="'+x.toFixed(1)+'" cy="'+cy+'" r="5" fill="#98A2B3"/><text x="'+x.toFixed(1)+'" y="'+(cy+(i%2?17:-10))+'" text-anchor="middle" font-size="8.5" fill="#667085">'+Math.round(r.value).toLocaleString('sk-SK')+'</text>';});
     if(avg>0){var ax=px(avg);s+='<line x1="'+ax.toFixed(1)+'" y1="18" x2="'+ax.toFixed(1)+'" y2="106" stroke="#7A5AF8" stroke-width="1.5" stroke-dasharray="4 4"/><text x="'+ax.toFixed(1)+'" y="116" text-anchor="middle" font-size="8.5" font-weight="700" fill="#6941C6">PRIEMER</text>';}
     if(our>0){var ox=px(our);s+='<circle cx="'+ox.toFixed(1)+'" cy="'+y+'" r="13" fill="#fff" stroke="#155EEF" stroke-width="5"/><circle cx="'+ox.toFixed(1)+'" cy="'+y+'" r="4" fill="#155EEF"/><rect x="'+(ox-38).toFixed(1)+'" y="22" width="76" height="20" rx="10" fill="#155EEF"/><text x="'+ox.toFixed(1)+'" y="35.5" text-anchor="middle" font-size="8.5" font-weight="800" fill="#fff">NÁŠ PROJEKT</text>';}
-    s+='<text x="'+x0+'" y="123" font-size="8.5" fill="#98A2B3">'+Math.round(lo).toLocaleString('sk-SK')+' €</text><text x="'+x1+'" y="123" text-anchor="end" font-size="8.5" fill="#98A2B3">'+Math.round(hi).toLocaleString('sk-SK')+' €</text></svg><div class="benchmark-legend">'+comp.slice(0,5).map(function(r){return '<span class="benchmark-chip" title="'+esc(r.label)+'">'+ekSvgEsc(r.label)+'</span>';}).join('')+'</div>';
+    s+='<text x="'+x0+'" y="123" font-size="8.5" fill="#98A2B3">'+Math.round(lo).toLocaleString('sk-SK')+' €</text><text x="'+x1+'" y="123" text-anchor="end" font-size="8.5" fill="#98A2B3">'+Math.round(hi).toLocaleString('sk-SK')+' €</text></svg><div class="benchmark-legend">'+comp.slice(0,5).map(function(r){return '<span class="benchmark-chip" title="'+escAttr(r.label)+'">'+ekSvgEsc(r.label)+'</span>';}).join('')+'</div>';
     return s;
   }
   function ekChartsInner(p,c){
@@ -3104,20 +3120,18 @@
     var inc=c.incLines.filter(function(l){return l.bez>0;}).map(function(l){return {label:l.label,value:l.bez};}).sort(function(a,b){return b.value-a.value;});
     var g3=ekDonut(inc,'príjmy spolu');
     // My vs konkurencia €/m²: naša cena zvýraznená + priemer konkurencie ako čiara
-    var comp=(p.competitors||[]).filter(function(x){return ekNum(x.eurm2)>0;})
-      .map(function(x){return {label:(x.project||'—')+(x.type?' · '+String(x.type).trim():''), value:ekNum(x.eurm2)};})
-      .sort(function(a,b){return b.value-a.value;}).slice(0,9);
+    var compAll=(p.competitors||[]).filter(function(x){return ekCompPrice(x)>0;})
+      .map(function(x){return {label:(x.project||'—')+(x.type?' · '+String(x.type).trim():''), value:ekCompPrice(x),area:ekNum(x.area)};})
+      .sort(function(a,b){return b.value-a.value;}),comp=compAll.slice(0,9),marketAvg=ekCompTotals(p).eurm2;
     var our=(function(){ var r=(p.income||[])[0]; return r?ekNum(r.r1):0; })();
     var eurm2=function(v){ return Math.round(v).toLocaleString('sk-SK')+' €'; };
     var g4=null;
     if(comp.length || our>0){
-      var avg=comp.length? comp.reduce(function(a,x){return a+x.value;},0)/comp.length : 0;
-      g4=ekBenchmark(comp,our);
+      g4=ekBenchmark(comp,our,marketAvg);
     }
     var verdict='';
-    if(our>0 && comp.length){
-      var avg2=comp.reduce(function(a,x){return a+x.value;},0)/comp.length;
-      var diff=(our-avg2)/avg2*100;
+    if(our>0 && compAll.length && marketAvg>0){
+      var diff=(our-marketAvg)/marketAvg*100;
       verdict='<div style="font-size:11.5px;margin-top:6px;color:'+(diff<=0?'#1a7f47':'#b8860b')+'">Naša cena je <b>'+(diff<=0?'nižšia':'vyššia')+' o '+Math.abs(diff).toFixed(0)+' %</b> než priemer konkurencie.</div>';
     }
     return ekHero(c)+
@@ -3135,8 +3149,8 @@
   }
   function ekMarketingHero(p,c){
     var margin=c.marza==null?0:c.marza*100, ring=Math.max(0,Math.min(100,margin/30*100));
-    var comp=(p.competitors||[]).filter(function(x){return ekNum(x.eurm2)>0;}),our=(p.income&&p.income[0])?ekNum(p.income[0].r1):0,diff=null;
-    if(comp.length&&our>0){var avg=comp.reduce(function(a,x){return a+ekNum(x.eurm2);},0)/comp.length;diff=(our-avg)/avg*100;}
+    var comp=(p.competitors||[]).filter(function(x){return ekCompPrice(x)>0;}),our=(p.income&&p.income[0])?ekNum(p.income[0].r1):0,diff=null;
+    if(comp.length&&our>0){var avg=ekCompTotals(p).eurm2;diff=avg?(our-avg)/avg*100:null;}
     var advantage=diff==null?'Dátovo podložený model':(diff<=0?'o '+Math.abs(diff).toFixed(0)+' % výhodnejšia cena':'prémiová pozícia +'+Math.abs(diff).toFixed(0)+' %');
     return '<div class="card marketing-hero"><div class="marketing-inner"><div><div class="marketing-eyebrow">Investičná príležitosť · Vi Group</div><h1>'+esc(p.name||'Developerský projekt')+'</h1><p class="marketing-claim">Projekt s potenciálom zisku <b>'+esc(fmtMoneyShort(c.zisk))+'</b> a maržou v atraktívnom investičnom pásme. Čísla, ktoré premieňajú víziu na presvedčivú príležitosť.</p></div><div class="marketing-ring" style="--margin:'+ring.toFixed(1)+'%"><div class="marketing-ring-value"><b>'+(c.marza==null?'—':fmt(c.marza*100,1)+' %')+'</b><span>Projektová marža</span></div></div></div><div class="marketing-proof"><div><b>'+esc(fmtMoneyShort(c.prijmyBez))+'</b><span>Potenciálne príjmy</span></div><div><b>'+esc(fmtMoneyShort(c.zisk))+'</b><span>Zisk bez DPH</span></div><div><b>'+esc(advantage)+'</b><span>Trhová pozícia</span></div></div></div>';
   }
@@ -3145,7 +3159,7 @@
     var p=ekActive(); if(!p){ ekLoad(); p=ekActive(); }
     var c=ekCompute(p);
     var ids=Object.keys(EK.projects);
-    var opts=ids.map(function(k){ return '<option value="'+esc(k)+'"'+(k===EK.active?' selected':'')+'>'+esc(EK.projects[k].name||'(bez názvu)')+'</option>'; }).join('');
+    var opts=ids.map(function(k){ return '<option value="'+escAttr(k)+'"'+(k===EK.active?' selected':'')+'>'+esc(EK.projects[k].name||'(bez názvu)')+'</option>'; }).join('');
 
     // hlavička projektu
     var head='<div class="card ek-project"><h2>Ekonomika projektu</h2>'+
@@ -3168,7 +3182,7 @@
       '</div></div>';
 
     function marginInsight(m){if(m==null)return['Bez dostatku údajov',''];var mp=m*100;if(mp>=15&&mp<=20)return['V odporúčanom pásme 15–20 %','good'];if(mp>20)return['Nad cieľovým pásmom','good'];return['Pod odporúčaným pásmom 15 %','warn'];}
-    function heroKpi(id,text,title,label,insight,cls,cardCls,extra){return '<div class="kpi '+(cardCls||'')+'"><div class="v" id="'+id+'" title="'+esc(title)+'">'+text+'</div><div class="l">'+esc(label)+'</div>'+(insight?'<div class="insight '+(cls||'')+'">'+esc(insight)+'</div>':'')+(extra||'')+'</div>';}
+    function heroKpi(id,text,title,label,insight,cls,cardCls,extra){return '<div class="kpi '+(cardCls||'')+'"><div class="v" id="'+id+'" title="'+escAttr(title)+'">'+text+'</div><div class="l">'+esc(label)+'</div>'+(insight?'<div class="insight '+(cls||'')+'">'+esc(insight)+'</div>':'')+(extra||'')+'</div>';}
     var mi=marginInsight(c.marza);
     var marginWidth=c.marza==null?0:Math.max(0,Math.min(100,c.marza*100/30*100));
     var marginMeter='<div class="margin-meter" aria-label="Marža v rozsahu 0 až 30 percent"><span style="width:'+marginWidth.toFixed(1)+'%"></span></div><div class="margin-scale"><span>0 %</span><span>cieľ 15–20 %</span><span>30 %</span></div>';
@@ -3239,7 +3253,7 @@
     var naklady='<div class="card ek-data-card ek-complete"><h2>Kompletné náklady</h2>'+
       '<p class="hint">Riadok je buď paušál (€), alebo % zo základu (príjmy / stavba+ostatné). Spolu = stavba+ostatné plus tieto riadky.</p>'+
       '<table><thead><tr><th>Druh nákladu</th><th>Sadzba / suma</th><th>Bez DPH €</th><th>S DPH €</th><th class="no-print"></th></tr></thead>'+
-      '<tbody><tr><td><b>Stavba + ostatné</b></td><td></td>'+ekO('ek_o_stavbaOstatne2',fmt(c.stavbaOstatne))+'<td></td><td class="no-print"></td></tr>'+nkRows+'</tbody>'+
+      '<tbody><tr><td><b>Stavba + ostatné</b></td><td></td>'+ekO('ek_o_stavbaOstatne2',fmt(c.stavbaOstatne))+ekO('ek_o_stavbaOstatneSdph2',fmt(c.stavbaOstatne*(1+(p.dph||0))))+'<td class="no-print"></td></tr>'+nkRows+'</tbody>'+
       '<tfoot><tr><td>NÁKLADY SPOLU</td><td></td>'+ekO('ek_o_nakladyBez2',fmt(c.nakladyBez))+ekO('ek_o_nakladySdph2',fmt(c.nakladySdph))+'<td class="no-print"></td></tr></tfoot></table>'+
       '<button class="btn sec no-print" data-ekact="addnk" style="margin-top:8px">+ Pridať nákladový riadok</button></div>';
 
@@ -3253,9 +3267,9 @@
     var _cf=function(lbl,inner){ return '<label style="display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--mut)"><span>'+lbl+'</span>'+inner+'</label>'; };
     var compRows=p.competitors.map(function(cc,i){
       var src = ekIsUrl(cc.src)
-        ? '<a href="'+esc(cc.src)+'" target="_blank" rel="noopener" title="'+esc(cc.src)+'" style="white-space:nowrap;padding:6px 2px;display:inline-block;font-weight:600">otvoriť ↗</a>'
+        ? '<a href="'+escAttr(cc.src)+'" target="_blank" rel="noopener" title="'+escAttr(cc.src)+'" style="white-space:nowrap;padding:6px 2px;display:inline-block;font-weight:600">otvoriť ↗</a>'
         : ekText('comp',i,'src',cc.src,150);
-      return '<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px;background:#fbfcfe">'+
+      return '<div class="ek-competitor" style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px;background:#fbfcfe">'+
         '<div style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:flex-end">'+
           _cf('Projekt', ekText('comp',i,'project',cc.project,230))+
           _cf('Typ', ekText('comp',i,'type',cc.type,110))+
@@ -3285,10 +3299,10 @@
       '<div class="filter no-print" style="gap:8px;flex-wrap:wrap;align-items:center;margin:2px 0 12px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">'+
         '<b style="font-size:13px">🌐 Načítať z internetu:</b>'+
         '<label>Zdroj: <select data-ek="konk" data-f="zdroj" style="padding:4px"><option value="flatscraper"'+((kk.zdroj||'flatscraper')==='flatscraper'?' selected':'')+'>flatscraper (€/m²)</option><option value="bratislavaliving"'+(kk.zdroj==='bratislavaliving'?' selected':'')+'>bratislavaliving (BA, aj pred predajom)</option></select></label>'+
-        '<label>Lokalita: <input type="text" data-ek="konk" data-f="miesto" value="'+esc(kk.miesto||'')+'" placeholder="napr. Vysoké Tatry" style="width:150px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:5px;font:inherit"></label>'+
+        '<label>Lokalita: <input type="text" data-ek="konk" data-f="miesto" value="'+escAttr(kk.miesto||'')+'" placeholder="napr. Vysoké Tatry" style="width:150px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:5px;font:inherit"></label>'+
         '<button class="btn" data-ekact="konkweb">Podľa lokality</button>'+
         '<span style="color:#94a3b8">alebo</span>'+
-        '<label>Odkaz: <input type="text" data-ek="konk" data-f="url" value="'+esc(kk.url||'')+'" placeholder="https://… stránka projektu" style="width:220px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:5px;font:inherit"></label>'+
+        '<label>Odkaz: <input type="text" data-ek="konk" data-f="url" value="'+escAttr(kk.url||'')+'" placeholder="https://… stránka projektu" style="width:220px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:5px;font:inherit"></label>'+
         '<button class="btn sec" data-ekact="konkurl">＋ Z odkazu</button>'+
         '<span class="hint" id="ek_konk_status" style="margin:0"></span>'+
       '</div>'+
@@ -3321,7 +3335,7 @@
     set('ek_o_prijmyBez',fmtMoneyShort(c.prijmyBez)); set('ek_o_prijmyBez2',fmt(c.prijmyBez));
     set('ek_o_prijmySdph',fmtMoneyShort(c.prijmySdph)); set('ek_o_prijmySdph2',fmt(c.prijmySdph));
     set('ek_o_stavba',fmt(c.stavba)); set('ek_o_ostatne',fmt(c.ostatne));
-    set('ek_o_stavbaOstatne',fmt(c.stavbaOstatne)); set('ek_o_stavbaOstatne2',fmt(c.stavbaOstatne));
+    set('ek_o_stavbaOstatne',fmt(c.stavbaOstatne)); set('ek_o_stavbaOstatne2',fmt(c.stavbaOstatne)); set('ek_o_stavbaOstatneSdph2',fmt(c.stavbaOstatne*(1+(p.dph||0))));
     set('ek_o_nakladyBez',fmtMoneyShort(c.nakladyBez)); set('ek_o_nakladyBez2',fmt(c.nakladyBez));
     set('ek_o_nakladySdph',fmtMoneyShort(c.nakladySdph)); set('ek_o_nakladySdph2',fmt(c.nakladySdph));
     set('ek_o_zisk',fmtMoneyShort(c.zisk)); set('ek_o_ziskSdph',fmtMoneyShort(c.ziskSdph));
@@ -3361,8 +3375,8 @@
           else if(f==='area'){ if(ekNum(cc.eurm2)>0) cc.bez=ekR2(ca*ekNum(cc.eurm2)); else if(ekNum(cc.bez)>0 && ca>0) cc.eurm2=ekR2(ekNum(cc.bez)/ca); }
           cc.sdph=ekCompSdph(p,cc);
           // živo prepíš prepojené vstupy v tom istom riadku (bez re-renderu → drží fokus)
-          var tr=el.closest && el.closest('tr');
-          if(tr){ ['eurm2','bez'].forEach(function(fld){ if(fld!==f){ var x=tr.querySelector('input[data-ek="comp"][data-f="'+fld+'"]'); if(x) x.value=(cc[fld]==null?'':cc[fld]); } }); }
+          var card=el.closest && el.closest('.ek-competitor');
+          if(card){ ['eurm2','bez'].forEach(function(fld){ if(fld!==f){ var x=card.querySelector('input[data-ek="comp"][data-f="'+fld+'"]'); if(x) x.value=(cc[fld]==null?'':cc[fld]); } }); }
         }
       }
     } else if(scope==='kat'){
@@ -3386,7 +3400,7 @@
     var b=e.target.closest && e.target.closest('[data-ekact]'); if(!b) return;
     var act=b.getAttribute('data-ekact'); if(act==='switch') return;
     var p=ekActive();
-    if(act==='new'){ var np=ekPanoramaProject(); np.id=ekUid('proj'); np.name='Nový projekt'; EK.projects[np.id]=np; EK.active=np.id; ekSave(); ekRerender(); }
+    if(act==='new'){ var np=ekBlankProject(); EK.projects[np.id]=np; EK.active=np.id; ekSave(); ekRerender(); }
     else if(act==='dup'){ var d=JSON.parse(JSON.stringify(p)); d.id=ekUid('proj'); d.name=(p.name||'Projekt')+' (kópia)'; EK.projects[d.id]=d; EK.active=d.id; ekSave(); ekRerender(); }
     else if(act==='rename'){ var nm=prompt('Názov projektu:', p.name||''); if(nm!=null){ p.name=nm; ekSave(); ekRerender(); } }
     else if(act==='del'){ if(Object.keys(EK.projects).length<=1){ alert('Musí zostať aspoň jeden projekt.'); return; } if(confirm('Zmazať projekt „'+(p.name||'')+'“?')){ delete EK.projects[EK.active]; EK.active=Object.keys(EK.projects)[0]; ekSave(); ekRerender(); } }
