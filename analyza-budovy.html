@@ -1659,9 +1659,14 @@
   function computeChecks(model) {
     var EPS = 0.5; // tolerancia v m² (zaokrúhľovanie v CSV)
     var floorChecks = model.floors.map(function (fl) {
-      // súčet medzisúčtov skupín vs PODL. PLOCHA CELKOVÁ
-      var sumGroups = fl.groupSubtotals.reduce(function (a, x) { return a + x; }, 0);
-      var ok = (fl.floorTotalCsv == null) ? null : Math.abs(sumGroups - fl.floorTotalCsv) <= EPS;
+      // Počítané = reálne plochy jednotiek + samostatných miestností. Niektoré exporty
+      // (Topoľčianska) majú všetky riadky medzisúčtov prázdne, hoci miestnosti plochy majú.
+      // Krížová kontrola preto nesmie ukazovať falošnú nulu len preto, že zdroj nemá subtotal.
+      var floorUnits = fl.units.reduce(function (a, u) { return a + (u.interior || 0); }, 0);
+      var floorRooms = fl.rooms.filter(function (r) { return r.unitCode == null; })
+        .reduce(function (a, r) { return a + (r.interior || 0); }, 0);
+      var calculated = floorUnits + floorRooms;
+      var ok = (fl.floorTotalCsv == null) ? null : Math.abs(calculated - fl.floorTotalCsv) <= EPS;
       // blokové medzisúčty
       var blockChecks = fl.blockOrder.map(function (roman) {
         var b = fl.blocks[roman];
@@ -1674,7 +1679,7 @@
         var bok = (b.subtotalCsv == null) ? null : Math.abs(calc - b.subtotalCsv) <= EPS;
         return { roman: roman, so: b.so, calc: calc, csv: b.subtotalCsv, ok: bok };
       });
-      return { label: fl.label, sumGroups: sumGroups, csv: fl.floorTotalCsv, ok: ok, blocks: blockChecks };
+      return { label: fl.label, sumGroups: calculated, csv: fl.floorTotalCsv, ok: ok, blocks: blockChecks };
     });
 
     // miestnosti so spacím kútom (na ručné posúdenie izbovosti)
