@@ -20,7 +20,7 @@ const fixtureDir = path.resolve(repo, '..', 'data test topolcianska');
 const files = fs.readdirSync(fixtureDir)
   .filter((name) => name.toLowerCase().endsWith('.csv'))
   .sort()
-  .map((name) => ({ name, text: fs.readFileSync(path.join(fixtureDir, name), 'utf8') }));
+  .map((name) => ({ name, text: new TextDecoder('windows-1250').decode(fs.readFileSync(path.join(fixtureDir, name))) }));
 
 const model = Core.buildModel(files);
 const totals = model.stats.totals;
@@ -29,7 +29,7 @@ const noisy = model.stats.roomTypeRows.filter((row) =>
 );
 
 assert.strictEqual(files.length, 10, 'Testovacia sada Topoľčianska musí obsahovať 10 CSV.');
-assert.ok(Math.abs(totals.spolocneTechnicke - 1694.47) < 0.001,
+assert.ok(Math.abs(totals.spolocneTechnicke - 3521.04) < 0.001,
   'CSV bez celkového medzisúčtu musí použiť priamy súčet spoločných plôch.');
 assert.ok(totals.spolocneTechnicke >= 0, 'Spoločná plocha nesmie byť záporná.');
 assert.strictEqual(noisy.length, 0, 'Text pečiatky nesmie skončiť medzi typmi miestností.');

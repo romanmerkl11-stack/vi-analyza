@@ -1103,7 +1103,7 @@
     // SPOLOČNÉ KOMUNIKÁCIE (schodisko, výťah, rampa…)
     if (/^(SCHODISKO|VYTAH|RAMPA|PODESTA|EXTERIEROVE SCHODISKO|PODLAHA POD SCHODMI)/.test(d)) return { cat: 'SPOLOČNÉ KOMUNIKÁCIE', living: false };
     // KOMUNIKÁCIA (v jednotke — poloha ju neskôr môže preklopiť na spoločnú)
-    if (/^(VSTUPNA PREDSIEN|POZIARNA PREDSIEN|PREDSIEN|CHODBA|SATNIK|VSTUPNE PRIESTOR|ZADVERIE)/.test(d)) return { cat: 'KOMUNIKÁCIA', living: false };
+    if (/^(VSTUPNA PREDSIEN|VSTUPNA HALA|POZIARNA PREDSIEN|PREDSIEN|CHODBA|SATNIK|VSTUPNE PRIESTOR|ZADVERIE)/.test(d)) return { cat: 'KOMUNIKÁCIA', living: false };
     if (/^SKLAD\b/.test(d) || /^KOMORA/.test(d)) return { cat: 'SKLAD', living: false, sklad: true };
     if (/^(PARKOVAC|PARKOVISK|PARKOVANI|STATIE|STALIE)/.test(d) || /GARAZ/.test(d)) return { cat: 'GARÁŽ / PARKOVANIE', living: false, garaz: true };
     // TECHNICKÉ / NEBYTOVÉ — Roman: ak je v názve „tech." → technická. Kľúčové slová KDEKOĽVEK.
@@ -1200,6 +1200,7 @@
       var podlaha = norm(cx(cells, 'podlaha', 4));
       var steny = norm(cx(cells, 'steny', 6));
       var strop = norm(cx(cells, 'strop', 8));
+      var unitRef = norm(cx(cells, 'unit', 11));
 
       if (!name && !code) continue;
 
@@ -1250,11 +1251,14 @@
       // hlavička jednotky?
       var utype = detectUnitType(name);
       if (utype) {
-        var blk = romanFromCode(code) || curBlock;
+        // Niektoré exporty (Topoľčianska) majú na hlavičke BYT/APARTMÁN prázdne Č.M.
+        // a identifikátor jednotky iba v sémantickom stĺpci BYT/APT.
+        var unitCode = code || unitRef;
+        var blk = romanFromCode(unitCode) || curBlock;
         ensureBlock(blk);
         var residential = (utype === 'BYT' || utype === 'APARTMÁN' || utype === 'MEZONET');
         var unit = {
-          code: code, type: utype, name: name,
+          code: unitCode, type: utype, name: name,
           floor: floor.label, floorLevel: floor.level, block: blk,
           interior: (interior != null ? interior : null),
           hasOwnArea: (interior != null),
