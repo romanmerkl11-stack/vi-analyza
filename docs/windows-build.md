@@ -14,7 +14,8 @@ v prehliadači. Žiadny Python ani terminál pre koncového používateľa. **Ov
 - `tools/ocr_win.py` — OCR skenov cez **RapidOCR** (offline, ONNX). OCR sa bundluje do
   `.exe`, takže sa **inštaluje spolu s appkou** — používateľ nič doinštalovať nemusí.
 - PyMuPDF (`fitz`), RapidOCR + onnxruntime (modely) — bundluje PyInstaller.
-- `krivky` **nie sú** v balíku (IC1-špecifické).
+- `tools/krivky_na_text.py` + `tools/znaky.json` — presný fallback pre text prevedený
+  na krivky (najmä IC1). Launcher ich aktualizuje ako malé súbory vedľa `.exe`.
 
 ## Predpoklady (raz)
 ```
@@ -31,12 +32,12 @@ Buduje sa v `C:\vitab\build` (bez medzier/diakritiky v ceste — priamo v Google
 priečinku `G:\Môj disk\…` PyInstaller robí problémy).
 
 1. Skopíruj do `C:\vitab\build\`: `server.py`, `pdf_legend.py`, `kataster.py`,
-   `konkurencia.py`, `ocr_win.py`, `analyza-budovy.html`
+   `konkurencia.py`, `ocr_win.py`, `krivky_na_text.py`, `znaky.json`, `analyza-budovy.html`
    (napr. `scp … grafik@192.168.100.54:/C:/vitab/build/`).
 2. Ak beží starý exe, zabi ho: `taskkill /IM Vi-Analyza.exe /F`.
 3. Build (vrátane OCR):
 ```
-py -m PyInstaller --onefile --name Vi-Analyza --paths C:\vitab\build --hidden-import pdf_legend --hidden-import ocr_win --hidden-import kataster --hidden-import konkurencia --collect-all rapidocr_onnxruntime --collect-all onnxruntime --add-data C:\vitab\build\analyza-budovy.html;. --distpath C:\vitab\build\dist --workpath C:\vitab\build\work --specpath C:\vitab\build --noconfirm C:\vitab\build\server.py
+py -m PyInstaller --onefile --name Vi-Analyza --paths C:\vitab\build --hidden-import pdf_legend --hidden-import ocr_win --hidden-import kataster --hidden-import konkurencia --hidden-import krivky_na_text --collect-all rapidocr_onnxruntime --collect-all onnxruntime --add-data C:\vitab\build\analyza-budovy.html;. --add-data C:\vitab\build\znaky.json;. --distpath C:\vitab\build\dist --workpath C:\vitab\build\work --specpath C:\vitab\build --noconfirm C:\vitab\build\server.py
 ```
 **DÔLEŽITÉ:** `kataster.py` a `konkurencia.py` sa importujú dynamicky (`_try_import`), preto ich
 PyInstaller sám nenájde — bez `--hidden-import kataster --hidden-import konkurencia` by ich exe

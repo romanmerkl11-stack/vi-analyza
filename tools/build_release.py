@@ -33,6 +33,8 @@ SMALL_FILES = [
     "tools/kataster.py",
     "tools/konkurencia.py",
     "tools/ocr_win.py",
+    "tools/krivky_na_text.py",
+    "tools/znaky.json",
 ]
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

@@ -221,6 +221,10 @@ def extract_meta(text):
     # miesto (obec) pred „k.ú.": „BRATISLAVA - RAČA, k.ú. …" → 'BRATISLAVA - RACA'
     m = re.search(r'\b([A-Z]{3,}(?:\s*-\s*[A-Z]{3,})?)\s*,?\s*K\.?\s*U\.?\s', d)
     if m: meta['miesto'] = re.sub(r'\s+', ' ', m.group(1)).strip()
+    # OCR vie pred „k.ú." zachytiť názov susedného poľa (najmä „POZEM") namiesto obce.
+    # Takýto presvedčivo vyzerajúci, ale neplatný údaj radšej necháme na potvrdenie používateľovi.
+    if meta['miesto'] in {'POZEM', 'PARCELA', 'STAVBA', 'OBJEKT', 'INVESTOR', 'MIESTO'}:
+        meta['miesto'] = None
     # PODLAŽIE — „PODORYS 4.NP, 6.NP" → [4,6] → floorName "4+6NP"
     m = re.search(r'PODORYS[^0-9]{0,6}((?:\d+\s*\.?\s*(?:NP|PP)[,\s]*)+)', d)
     if m:

@@ -2750,8 +2750,14 @@
   function ekKat(p){ if(!p.kataster) p.kataster={ku:'', rows:[]}; return p.kataster; }
   function ekKatParseNumbers(str){
     var seen={}, out=[];
+    var base=null;
     String(str==null?'':str).split(/[^0-9\/]+/).forEach(function(t){
-      t=t.trim(); if(/^\d+(\/\d+)?$/.test(t) && !seen[t]){ seen[t]=1; out.push(t); }
+      t=t.trim();
+      if(/^\d+\/\d+$/.test(t)) base=t.split('/')[0];
+      else if(/^\d+$/.test(t) && base) t=base+'/'+t;
+      else if(/^\d+$/.test(t)) base=null;
+      else return;
+      if(!seen[t]){ seen[t]=1; out.push(t); }
     });
     return out;
   }
