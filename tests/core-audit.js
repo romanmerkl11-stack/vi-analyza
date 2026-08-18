@@ -1,0 +1,44 @@
+#!/usr/bin/env node
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const repo = path.resolve(__dirname, '..');
+const html = fs.readFileSync(path.join(repo, 'analyza-budovy.html'), 'utf8');
+const start = html.indexOf('/* ============================================================================\n   core.js');
+const end = html.indexOf('</script>', start);
+if (start < 0 || end < 0) throw new Error('AnalyzaCore sa nepodarilo vybrať z HTML.');
+
+const sandbox = { module: { exports: {} }, exports: {}, console };
+vm.runInNewContext(html.slice(start, end), sandbox, { filename: 'embedded-core.js' });
+const Core = sandbox.module.exports;
+
+const fixtureDir = path.resolve(repo, '..', 'data test topolcianska');
+const files = fs.readdirSync(fixtureDir)
+  .filter((name) => name.toLowerCase().endsWith('.csv'))
+  .sort()
+  .map((name) => ({ name, text: fs.readFileSync(path.join(fixtureDir, name), 'utf8') }));
+
+const model = Core.buildModel(files);
+const totals = model.stats.totals;
+const noisy = model.stats.roomTypeRows.filter((row) =>
+  /HLAVN[YÝ] PROJEKTANT|D[AÁ]TUM|ZODPOVED|ZK\d|W1[AB]/i.test(row.name)
+);
+
+console.log(JSON.stringify({
+  files: files.length,
+  floors: model.floors.length,
+  rooms: model.rooms.length,
+  units: model.units.length,
+  floorTotal: totals.podlahovaCelkova,
+  saleable: totals.predajnaInterior,
+  garages: totals.garaz.interior,
+  common: totals.spolocneTechnicke,
+  directPrivate: model.bilancie.byOwn['Súkromné'].total,
+  directCommon: model.bilancie.byOwn['Spoločné'].total,
+  directUseful: model.bilancie.uzitkova.total,
+  exterior: (totals.byt.exterior || 0) + (totals.apartman.exterior || 0),
+  noisyRoomTypes: noisy.map((row) => row.name)
+}, null, 2));

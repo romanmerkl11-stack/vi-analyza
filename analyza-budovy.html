@@ -5,54 +5,269 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Analýza budovy — legenda miestností</title>
 <style>
-  :root{ --blue:#1964AA; --ink:#1b2733; --mut:#5b6b7a; --line:#d7dee6; --bg:#f4f6f9; --ok:#1a7f47; --bad:#c0392b; --warn:#b8860b; }
+  :root{
+    --blue:#155EEF;--blue-dark:#0B3B91;--blue-soft:#EEF4FF;
+    --ink:#172033;--mut:#667085;--line:#D9E1EC;--line-strong:#C3CEDD;
+    --bg:#F3F6FA;--surface:#FFFFFF;--surface-soft:#F8FAFC;
+    --ok:#087A55;--bad:#C4323D;--warn:#A15C00;
+    --shadow-sm:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+    --shadow-md:0 8px 24px rgba(16,24,40,.07);
+    --radius:12px;--radius-sm:8px;
+  }
   *{box-sizing:border-box}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;margin:0;color:var(--ink);background:var(--bg);font-size:14px;line-height:1.45}
-  header{background:var(--blue);color:#fff;padding:14px 20px}
-  header h1{margin:0;font-size:18px;font-weight:600}
-  header p{margin:4px 0 0;opacity:.9;font-size:12.5px}
-  .wrap{max-width:1200px;margin:0 auto;padding:18px 20px 60px}
-  .drop{border:2px dashed var(--blue);border-radius:10px;background:#fff;padding:26px;text-align:center;cursor:pointer;transition:.15s}
-  .drop.drag{background:#e8f1fb;border-color:#0d4d8a}
-  .drop b{color:var(--blue)}
-  .drop small{display:block;color:var(--mut);margin-top:6px}
-  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0;align-items:center}
-  button.btn{background:var(--blue);color:#fff;border:0;border-radius:7px;padding:8px 14px;font-size:13px;cursor:pointer}
-  button.btn.sec{background:#fff;color:var(--blue);border:1px solid var(--blue)}
-  button.btn:disabled{opacity:.45;cursor:not-allowed}
-  .status{color:var(--mut);font-size:12.5px}
-  nav.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:2px solid var(--line);margin:10px 0 16px}
-  nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:9px 12px;cursor:pointer;color:var(--mut);font-size:13px;margin-bottom:-2px}
-  nav.tabs button.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+  html{background:var(--bg);scroll-behavior:smooth}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;margin:0;color:var(--ink);background-color:var(--bg);background-image:radial-gradient(circle at 8% 18%,rgba(21,94,239,.055),transparent 24%),radial-gradient(circle at 92% 42%,rgba(105,65,198,.035),transparent 25%);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button,input,select,textarea{font:inherit}
+  button,input,select,textarea,a{-webkit-tap-highlight-color:transparent}
+  button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid rgba(21,94,239,.2);outline-offset:2px}
+  header{position:relative;overflow:hidden;background:linear-gradient(118deg,var(--blue-dark) 0%,#124FBF 58%,var(--blue) 100%);color:#fff;padding:20px max(20px,calc((100vw - 1400px)/2 + 24px));box-shadow:0 2px 10px rgba(11,59,145,.18)}
+  header:after{content:"";position:absolute;right:-90px;top:-180px;width:390px;height:390px;border:1px solid rgba(255,255,255,.12);border-radius:50%;box-shadow:0 0 0 54px rgba(255,255,255,.035),0 0 0 108px rgba(255,255,255,.025);pointer-events:none}
+  header h1{position:relative;display:flex;align-items:center;gap:12px;margin:0;font-size:20px;line-height:1.25;font-weight:720;letter-spacing:-.02em}
+  header h1:before{content:"Vi";display:grid;place-items:center;width:34px;height:34px;border:1px solid rgba(255,255,255,.32);border-radius:10px;background:linear-gradient(145deg,rgba(255,255,255,.24),rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 8px 20px rgba(3,26,76,.2);font-size:15px;font-weight:800;letter-spacing:-.05em}
+  header p{position:relative;max-width:900px;margin:4px 0 0 46px;color:rgba(255,255,255,.82);font-size:12.5px}
+  .wrap{max-width:1440px;margin:0 auto;padding:22px 24px 72px}
+  .drop{position:relative;border:1.5px dashed #8BAAF0;border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(248,250,252,.96));padding:22px 25px;text-align:center;cursor:pointer;box-shadow:var(--shadow-sm);transition:border-color .18s,background .18s,box-shadow .18s,transform .18s}
+  .drop:before{content:"↑";display:inline-grid;place-items:center;width:34px;height:34px;margin-right:10px;border-radius:10px;color:var(--blue);background:var(--blue-soft);box-shadow:inset 0 0 0 1px #D5E2FF;font-size:19px;font-weight:800;vertical-align:middle}
+  .drop:hover{border-color:var(--blue);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+  .drop.drag{background:var(--blue-soft);border-color:var(--blue);box-shadow:0 0 0 4px rgba(21,94,239,.1)}
+  .drop b{color:var(--blue);font-weight:700}
+  .drop small{display:block;max-width:900px;margin:6px auto 0;color:var(--mut);line-height:1.45}
+  code{padding:1px 4px;border:1px solid var(--line);border-radius:4px;background:var(--surface-soft);font-size:.92em}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 18px;align-items:center}
+  button.btn,.copybtn{min-height:36px;border:1px solid transparent;border-radius:var(--radius-sm);padding:8px 14px;font-weight:650;font-size:13px;line-height:1.2;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .1s}
+  button.btn{background:linear-gradient(135deg,#246BFD,var(--blue));color:#fff;box-shadow:0 1px 2px rgba(11,59,145,.18),0 5px 12px rgba(21,94,239,.14)}
+  button.btn:hover:not(:disabled){background:#0F4FD0;box-shadow:0 4px 10px rgba(21,94,239,.2)}
+  button.btn:active:not(:disabled),.copybtn:active{transform:translateY(1px)}
+  button.btn.sec{background:var(--surface);color:#344054;border-color:var(--line-strong);box-shadow:var(--shadow-sm)}
+  button.btn.sec:hover:not(:disabled){background:var(--surface-soft);color:var(--blue);border-color:#9CB6EC}
+  button.btn:disabled{opacity:.42;cursor:not-allowed;box-shadow:none}
+  .status{flex:1;min-width:220px;color:#526174;font-size:12px;font-weight:560;padding:7px 10px;border:1px solid #DCE3EC;border-radius:999px;background:rgba(255,255,255,.7)}
+  .viewbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 12px;padding:8px 10px 8px 13px;border:1px solid #D9E2EE;border-radius:11px;background:rgba(255,255,255,.82);box-shadow:var(--shadow-sm);backdrop-filter:blur(12px)}
+  .viewbar-copy{display:flex;align-items:center;gap:8px;color:#526174;font-size:12px}.viewbar-copy:before{content:"◉";color:var(--blue);font-size:14px}.viewbar-copy b{color:var(--ink)}
+  .view-switch{display:flex;gap:3px;padding:3px;border-radius:8px;background:#E9EEF5}
+  .view-switch button{border:0;border-radius:6px;padding:7px 11px;color:#596579;background:transparent;font-size:11.5px;font-weight:700;cursor:pointer}
+  .view-switch button.active{color:var(--blue-dark);background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.12)}
+  nav.tabs{position:sticky;top:8px;z-index:20;display:flex;gap:3px;overflow-x:auto;flex-wrap:nowrap;margin:0 0 18px;padding:5px;border:1px solid rgba(195,206,221,.9);border-radius:11px;background:rgba(233,238,245,.88);box-shadow:inset 0 1px 2px rgba(16,24,40,.03),0 8px 22px rgba(16,24,40,.08);backdrop-filter:blur(14px);scrollbar-width:thin}
+  nav.tabs button{flex:0 0 auto;background:transparent;border:0;border-radius:7px;padding:8px 11px;cursor:pointer;color:#596579;font-size:12.5px;font-weight:560;white-space:nowrap;transition:background .15s,color .15s,box-shadow .15s}
+  nav.tabs button:hover{color:var(--ink);background:rgba(255,255,255,.55)}
+  nav.tabs button.active{position:relative;color:var(--blue-dark);background:#fff;font-weight:700;box-shadow:0 1px 3px rgba(16,24,40,.11),inset 0 -2px 0 var(--blue)}
+  nav.tabs button.group-start:not(:first-child){margin-left:8px;border-left:1px solid #C4CFDD;border-radius:0 7px 7px 0}
   section.tab{display:none}
   section.tab.active{display:block}
-  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;margin:0 0 16px}
-  .card h2{margin:0 0 4px;font-size:15px;color:var(--blue)}
-  .card .hint{color:var(--mut);font-size:12px;margin:0 0 12px}
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-  .kpi{background:#f7fafe;border:1px solid var(--line);border-radius:8px;padding:12px}
-  .kpi .v{font-size:22px;font-weight:700;color:var(--blue)}
-  .kpi .l{font-size:12px;color:var(--mut);margin-top:2px}
-  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px}
-  th,td{border:1px solid var(--line);padding:6px 9px;text-align:right}
+  .card{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin:0 0 16px;box-shadow:var(--shadow-sm)}
+  .card:hover{border-color:#CED8E6}
+  .card h2{margin:0 0 4px;color:var(--ink);font-size:15px;line-height:1.35;font-weight:730;letter-spacing:-.01em}
+  .card h2:before{content:"";display:inline-block;width:3px;height:15px;margin-right:8px;border-radius:3px;background:var(--blue);vertical-align:-2px}
+  .card .hint,.hint{color:var(--mut);font-size:12px;margin:0 0 13px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:11px}
+  .kpi{position:relative;overflow:hidden;min-height:91px;background:linear-gradient(145deg,#fff 0%,#F7FAFF 100%);border:1px solid #D7E2F4;border-radius:10px;padding:14px 15px;box-shadow:0 1px 2px rgba(16,24,40,.035)}
+  .kpi:after{display:none}
+  .kpi .v{position:relative;color:var(--blue-dark);font-size:24px;line-height:1.15;font-weight:760;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+  .kpi .l{position:relative;color:var(--mut);font-size:11.5px;font-weight:560;margin-top:5px}
+  table{border-collapse:separate;border-spacing:0;width:100%;min-width:max-content;font-size:12.5px;margin-top:7px;font-variant-numeric:tabular-nums}
+  th,td{border:0;border-bottom:1px solid #E8EDF3;padding:8px 10px;text-align:right;vertical-align:middle}
   th:first-child,td:first-child{text-align:left}
-  thead th{background:#eef3f9;color:var(--ink);font-weight:600}
-  tbody tr:nth-child(even){background:#fafbfd}
-  tfoot td{font-weight:700;background:#eef3f9}
-  .tablebar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px}
-  .copybtn{font-size:12px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px 9px;cursor:pointer;color:var(--blue)}
-  .ok{color:var(--ok);font-weight:600}.bad{color:var(--bad);font-weight:600}.q{color:var(--mut)}
-  .warnbox{background:#fff8e6;border:1px solid #ecd9a0;border-radius:8px;padding:10px 12px;margin:8px 0;font-size:12.5px}
-  .filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-  .filter input,.filter select,.norm input{border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px}
-  .norm{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:10px}
-  .norm label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut)}
-  .empty{color:var(--mut);text-align:center;padding:30px}
+  thead th{position:relative;background:#F0F4F8;color:#475467;border-top:1px solid var(--line);border-bottom:1px solid var(--line-strong);font-size:11.5px;font-weight:720;letter-spacing:.01em;white-space:nowrap}
+  thead th:first-child{border-left:1px solid var(--line);border-radius:7px 0 0 0}
+  thead th:last-child{border-right:1px solid var(--line);border-radius:0 7px 0 0}
+  tbody tr:nth-child(even){background:#FAFBFD}
+  tbody tr:hover{background:#F1F6FF}
+  tbody td:first-child{font-weight:530;color:#344054}
+  tfoot td{font-weight:750;color:var(--ink);background:#EAF0F7;border-top:1px solid var(--line-strong);border-bottom-color:var(--line-strong)}
+  td input,td select{min-width:72px}
+  input:not([type="file"]),select,textarea{max-width:100%;min-height:34px;color:var(--ink);background:#fff;border:1px solid var(--line-strong);border-radius:7px;padding:6px 9px;font-size:12.5px;box-shadow:inset 0 1px 2px rgba(16,24,40,.035);transition:border-color .15s,box-shadow .15s,background .15s}
+  input:not([type="file"]):hover,select:hover,textarea:hover{border-color:#98A7BA}
+  input:not([type="file"]):focus,select:focus,textarea:focus{outline:0;border-color:var(--blue);box-shadow:0 0 0 3px rgba(21,94,239,.12);background:#fff}
+  input:disabled,select:disabled,textarea:disabled{color:#98A2B3;background:#F2F4F7;cursor:not-allowed}
+  input[type="number"]{font-variant-numeric:tabular-nums;text-align:right}
+  .tablebar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;color:var(--mut);font-size:12px}
+  .copybtn{min-height:30px;background:#fff;border-color:var(--line-strong);padding:5px 10px;color:var(--blue);box-shadow:var(--shadow-sm)}
+  .copybtn:hover{background:var(--blue-soft);border-color:#A9BFEF}
+  .ok{color:var(--ok);font-weight:700}.bad{color:var(--bad);font-weight:700}.q{color:var(--mut)}
+  .warnbox{color:#713B00;background:#FFF6E5;border:1px solid #F1CB89;border-left:4px solid #D77A00;border-radius:8px;padding:10px 12px;margin:9px 0;font-size:12.5px}
+  .filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .norm{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:11px;margin-bottom:11px}
+  .norm label{display:flex;flex-direction:column;gap:4px;color:var(--mut);font-size:11.5px;font-weight:600}
+  .empty{color:var(--mut);text-align:center;padding:42px 24px}
+  /* Ekonomika: pevná informačná hierarchia a konzistentné formuláre */
+  #sec-ekonomika{--ek-label:31%;--ek-control:18%;--ek-result:23%}
+  #sec-ekonomika>.card{position:relative;padding:22px 24px;margin-bottom:20px;border-color:#D5DEEA;box-shadow:0 1px 2px rgba(16,24,40,.04),0 10px 30px rgba(16,24,40,.045)}
+  #sec-ekonomika>.card:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;border-radius:12px 0 0 12px;background:linear-gradient(180deg,var(--blue),#76A5FF);opacity:.9}
+  #sec-ekonomika>.card>h2:first-child{display:flex;align-items:center;gap:10px;font-size:17px;letter-spacing:-.018em}
+  #sec-ekonomika>.card>h2:first-child:before{content:"◇";display:inline-grid;place-items:center;flex:0 0 34px;width:34px;height:34px;margin:0;border-radius:10px;color:var(--blue);background:linear-gradient(145deg,#F6F9FF,#E7EFFF);box-shadow:inset 0 0 0 1px #D7E3FA,0 3px 8px rgba(21,94,239,.1);font-size:17px;font-weight:800;vertical-align:0}
+  .ek-project>h2:first-child:before{content:"◆"!important}.ek-summary>h2:first-child:before{content:"▦"!important}.ek-charts>h2:first-child:before{content:"↗"!important}
+  .ek-income>h2:first-child:before{content:"€"!important}.ek-construction>h2:first-child:before{content:"⌁"!important}.ek-complete>h2:first-child:before{content:"Σ"!important}
+  .ek-map>h2:first-child:before{content:"⌘"!important}.ek-kataster>h2:first-child:before{content:"⌖"!important}.ek-competitors>h2:first-child:before{content:"◎"!important}
+  #sec-ekonomika>.card>.hint{max-width:1040px;margin-top:5px;margin-bottom:17px;line-height:1.55}
+  .ek-project{overflow:hidden;background:linear-gradient(135deg,#FFFFFF 0%,#F5F8FF 72%,#EDF3FF 100%)}
+  .ek-project:after{content:"LIVE MODEL";position:absolute;right:22px;top:20px;padding:5px 9px;border:1px solid #B8E4D4;border-radius:999px;color:#087A55;background:#ECFDF6;font-size:9px;font-weight:800;letter-spacing:.1em}
+  .ek-project>.filter{padding:12px 14px;margin:12px 0 0!important;border:1px solid #DCE5F2;border-radius:10px;background:rgba(255,255,255,.72)}
+  .ek-project>.filter label{display:flex;align-items:center;gap:7px;color:#475467;font-size:12px;font-weight:650}
+  .ek-summary{background:#fff}
+  .executive-hero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(270px,.65fr);gap:14px;margin-top:4px}
+  .executive-support{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+  .executive-secondary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}
+  .ek-summary .kpi{border:1px solid #E1E7EF;background:#fff;box-shadow:none;transition:border-color .18s,box-shadow .18s}
+  .ek-summary .kpi:hover{border-color:#BCC9D9;box-shadow:0 6px 18px rgba(16,24,40,.055)}
+  .ek-summary .kpi:has(#ek_o_zisk),.ek-summary .kpi:has(#ek_o_ziskSdph){background:#F7FBF9}
+  .ek-summary .kpi:has(#ek_o_zisk) .v,.ek-summary .kpi:has(#ek_o_ziskSdph) .v{color:var(--ok)}
+  .ek-summary .kpi:has(#ek_o_marza){background:#FAF9FC}
+  .ek-summary .kpi:has(#ek_o_marza) .v{color:#6941C6}
+  .ek-summary .kpi-hero{position:relative;display:flex;min-height:178px;flex-direction:column;justify-content:flex-end;overflow:hidden;padding:27px 28px;border-radius:12px}
+  .ek-summary .kpi-hero:before{content:"";position:absolute;left:28px;right:28px;top:51px;height:1px;background:#E3E9E6}
+  .ek-summary .kpi-hero:after{display:block;position:absolute;left:28px;top:25px;color:#667085;background:none;padding:0;font-size:9px;font-weight:800;letter-spacing:.13em}
+  .ek-summary .kpi-hero .v{margin-top:24px;font-size:46px;line-height:1;letter-spacing:-.05em}
+  .ek-summary .kpi-hero .l{margin-top:9px;color:#344054;font-size:13px;font-weight:800;letter-spacing:.045em;text-transform:uppercase}
+  .ek-summary .kpi-hero .insight{max-width:370px;margin-top:12px;padding-top:10px;font-size:11.5px}
+  .ek-summary .kpi-profit{border-left:4px solid #168760!important;background:#F7FBF9!important}
+  .ek-summary .kpi-profit:after{content:"HLAVNÝ VÝSLEDOK";color:#087A55}
+  .ek-summary .kpi-profit .v{color:#087A55!important}
+  .ek-summary .kpi-margin{border-left:4px solid #7A5BB4!important;background:#FAF9FC!important}
+  .ek-summary .kpi-margin:after{content:"VÝKONNOSŤ PROJEKTU";color:#6941C6}
+  .ek-summary .kpi-margin .v{color:#6941C6!important}
+  .margin-meter{height:7px;margin-top:13px;overflow:hidden;border-radius:999px;background:rgba(105,65,198,.12)}
+  .margin-meter span{display:block;height:100%;border-radius:inherit;background:#7655B2}
+  .margin-scale{display:flex;justify-content:space-between;margin-top:5px;color:#7B6B9B;font-size:8.5px;font-weight:650}
+  .ek-summary .kpi-support{min-height:104px;padding:17px 19px;border-top:2px solid #AFC0D8}
+  .ek-summary .kpi-support .v{font-size:29px;letter-spacing:-.035em}
+  .ek-summary .kpi-secondary{min-height:72px;padding:12px 15px;background:#F8FAFC;box-shadow:none!important}
+  .ek-summary .kpi-secondary .v{font-size:19px;color:#475467}
+  .ek-summary .kpi-secondary .l{font-size:9.5px}.ek-summary .kpi-secondary .insight{display:none}
+  .kpi .insight{position:relative;margin-top:7px;padding-top:6px;border-top:1px solid rgba(195,206,221,.6);color:#758195;font-size:10.5px;line-height:1.3}
+  .kpi .insight.good{color:var(--ok);font-weight:650}.kpi .insight.warn{color:var(--warn);font-weight:650}
+  .ek-data-card table{table-layout:fixed;min-width:760px;border:1px solid #DCE3EC;border-radius:10px;overflow:hidden;background:#fff}
+  .ek-data-card th,.ek-data-card td{height:51px;padding:8px 12px}
+  .ek-data-card thead th{border:0;border-bottom:1px solid #CFD8E5;border-radius:0!important;background:#E9EFF7;color:#344054;text-transform:uppercase;font-size:10.5px;letter-spacing:.045em}
+  .ek-data-card tbody tr:nth-child(even){background:#F8FAFD}
+  .ek-data-card tbody tr:hover{background:#EEF5FF}
+  .ek-data-card tbody td:first-child input{font-weight:650;color:#29364A;background:transparent;border-color:transparent;box-shadow:none}
+  .ek-data-card tbody td:first-child input:hover,.ek-data-card tbody td:first-child input:focus{background:#fff;border-color:var(--blue)}
+  .ek-data-card td input:not([type="file"]),.ek-data-card td select{width:calc(100% - 36px)!important;min-width:64px;max-width:170px}
+  .ek-data-card td:first-child input{width:100%!important;max-width:none}
+  .ek-data-card td small{display:inline-block;min-width:30px;margin-left:4px;color:#667085;font-size:11px;text-align:left;white-space:nowrap}
+  .ek-data-card td[id^="ek_o_"]{color:#172B4D;font-weight:760;white-space:nowrap}
+  .ek-data-card tfoot td{height:49px;background:linear-gradient(90deg,#E7EEF7,#F0F4FA);border-top:1px solid #C6D2E1;border-bottom-color:#D6DFEA}
+  .ek-data-card tfoot tr:last-child td{color:#0B3B91;background:linear-gradient(90deg,#DDE9FC,#EDF4FF);font-size:13px}
+  .ek-data-card tfoot tr:last-child td{border-bottom:0}
+  .ek-data-card>button:last-child{margin-top:14px!important}
+  .ek-income th:nth-child(1){width:25%}.ek-income th:nth-child(2),.ek-income th:nth-child(3),.ek-income th:nth-child(4),.ek-income th:nth-child(5){width:12.5%}.ek-income th:nth-child(6),.ek-income th:nth-child(7){width:15%}.ek-income th:last-child{width:42px}
+  .ek-construction th:first-child{width:38%}.ek-construction th:nth-child(2),.ek-construction th:nth-child(3){width:20%}.ek-construction th:nth-child(4){width:22%}.ek-construction th:last-child{width:42px}
+  .ek-complete th:first-child{width:34%}.ek-complete th:nth-child(2){width:31%}.ek-complete th:nth-child(3),.ek-complete th:nth-child(4){width:17.5%}.ek-complete th:last-child{width:42px}
+  .ek-map table,.ek-kataster table{min-width:720px}
+  .ek-competitors>div[style*="border:1px solid var(--line)"]{position:relative;border-color:#D8E1ED!important;border-radius:11px!important;padding:14px 16px!important;margin-bottom:10px!important;background:linear-gradient(135deg,#fff,#F8FAFD)!important;box-shadow:0 1px 2px rgba(16,24,40,.04);transition:transform .16s,border-color .16s,box-shadow .16s}
+  .ek-competitors>div[style*="border:1px solid var(--line)"]:hover{transform:translateY(-1px);border-color:#AFC4E8!important;box-shadow:0 8px 20px rgba(16,24,40,.07)}
+  .ek-competitors>div[style*="border:1px solid var(--line)"] label{color:#667085!important;font-weight:650}
+  .ek-competitors>div[style*="border:1px solid var(--line)"] input{background:#fff}
+  .ek-charts #ek_charts>div:first-child{border-radius:12px!important;box-shadow:0 8px 26px rgba(11,59,145,.12)}
+  .ek-chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .ek-chart-box{position:relative;min-width:0;min-height:280px;overflow:hidden;border:1px solid #DFE6EF;border-radius:15px;padding:18px 19px;background:linear-gradient(145deg,#fff,#F9FBFE);box-shadow:0 8px 24px rgba(18,48,88,.055)}
+  .ek-chart-box:after{content:"";position:absolute;right:-46px;top:-52px;width:138px;height:138px;border:22px solid rgba(21,94,239,.035);border-radius:50%;pointer-events:none}
+  .ek-chart-title{position:relative;z-index:1;color:var(--ink);font-size:14px;font-weight:760;letter-spacing:-.01em}
+  .ek-chart-sub{position:relative;z-index:1;margin:2px 0 14px;color:var(--mut);font-size:10.5px}
+  .ek-donut-layout{display:grid;grid-template-columns:176px minmax(0,1fr);align-items:center;gap:18px;min-height:190px}
+  .ek-donut{position:relative;width:172px;height:172px;border-radius:50%;box-shadow:0 12px 30px rgba(22,55,98,.13)}
+  .ek-donut:after{content:"";position:absolute;inset:28px;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 1px #E6EBF2,0 4px 14px rgba(16,24,40,.07)}
+  .ek-donut-center{position:absolute;z-index:1;inset:42px;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;pointer-events:none}
+  .ek-donut-center b{color:#172B4D;font-size:17px;line-height:1.05;letter-spacing:-.035em}.ek-donut-center span{margin-top:5px;color:#667085;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  .ek-donut-legend{display:grid;gap:8px}.ek-donut-row{display:grid;grid-template-columns:9px minmax(0,1fr) auto;align-items:center;gap:8px;padding-bottom:7px;border-bottom:1px solid #ECF0F4;font-size:10.5px}.ek-donut-row:last-child{border-bottom:0}
+  .ek-donut-dot{width:9px;height:9px;border-radius:50%}.ek-donut-label{overflow:hidden;color:#526174;text-overflow:ellipsis;white-space:nowrap}.ek-donut-value{color:#26364A;font-weight:720;font-variant-numeric:tabular-nums}
+  .profit-equation{display:grid;grid-template-columns:minmax(0,1fr) 34px minmax(0,1fr) 34px minmax(0,1fr);align-items:stretch;gap:8px;margin-top:22px}
+  .profit-step{display:flex;min-height:142px;flex-direction:column;justify-content:center;padding:18px;border:1px solid #DEE5EE;border-radius:12px;background:#F8FAFC}
+  .profit-step b{font-size:21px;line-height:1.1;letter-spacing:-.04em;font-variant-numeric:tabular-nums;white-space:nowrap}.profit-step span{margin-top:7px;color:#667085;font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+  .profit-step.income b{color:#155EEF}.profit-step.cost b{color:#B25C38}.profit-step.result{border-color:#B9E3D3;background:#F2FAF7}.profit-step.result b{color:#087A55}
+  .profit-operator{display:grid;place-items:center;color:#98A2B3;font-size:23px;font-weight:400}
+  .benchmark-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:4px 0 9px}.benchmark-summary>div{padding:11px 13px;border:1px solid #E2E8F0;border-radius:10px;background:#F8FAFC}.benchmark-summary b{display:block;color:#172B4D;font-size:19px;line-height:1.1}.benchmark-summary span{display:block;margin-top:4px;color:#667085;font-size:9px;font-weight:750;letter-spacing:.07em;text-transform:uppercase}.benchmark-summary .ours{border-color:#BED0FA;background:#F3F6FF}.benchmark-summary .ours b{color:#155EEF}
+  .benchmark-legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.benchmark-chip{max-width:160px;overflow:hidden;padding:4px 7px;border-radius:6px;color:#667085;background:#F1F4F8;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+  @media(max-width:900px){.ek-chart-grid{grid-template-columns:1fr}}
+  .card-collapse{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;margin-left:auto;border:1px solid #D5DEEA;border-radius:8px;color:#667085;background:#fff;box-shadow:var(--shadow-sm);font-size:15px;line-height:1;cursor:pointer;transition:transform .15s,color .15s,border-color .15s}
+  .card-collapse:hover{color:var(--blue);border-color:#A9BFEF}.card.collapsed>.card-collapse{display:none}
+  .card.collapsed>h2:first-child{margin:0}.card.collapsed>h2:first-child .card-collapse{transform:rotate(-90deg)}
+  .card.collapsed>:not(h2:first-child){display:none!important}.card.collapsed{padding-top:13px!important;padding-bottom:13px!important}
+  .empty-state{display:grid;justify-items:center;gap:8px;padding:48px 24px;text-align:center;border:1px dashed #BCD0EF;border-radius:12px;background:linear-gradient(145deg,#fff,#F5F8FF)}
+  .empty-state:before{content:"＋";display:grid;place-items:center;width:48px;height:48px;border-radius:14px;color:var(--blue);background:var(--blue-soft);box-shadow:inset 0 0 0 1px #D3E0FB;font-size:24px;font-weight:500}
+  .empty-state h3{margin:3px 0 0;font-size:16px}.empty-state p{max-width:520px;margin:0;color:var(--mut);font-size:12px}
+  body.has-data .drop{display:flex;align-items:center;justify-content:center;padding:10px 16px;border-style:solid;background:#F7FAFF}
+  body.has-data .drop:before{width:28px;height:28px;margin-right:8px;font-size:15px}body.has-data .drop small{display:none}body.has-data .drop b:before{content:"✓ ";color:var(--ok)}
+  body.present-mode .drop,body.present-mode>.toolbar{display:none!important}
+  body.present-mode .toolbar{display:none!important}body.present-mode .no-print,body.present-mode #sec-ekonomika .ek-data-card>button,body.present-mode .copybtn{display:none!important}
+  body.present-mode #sec-ekonomika input:not([type="file"]),body.present-mode #sec-ekonomika select{pointer-events:none;border-color:transparent!important;background:transparent!important;box-shadow:none!important;font-weight:650}
+  body.present-mode #sec-ekonomika .ek-project>.hint,body.present-mode #sec-ekonomika .ek-data-card>.hint{display:none}
+  body.present-mode .viewbar-copy span{display:none}body.present-mode .viewbar{border-color:#BFD0EA;background:linear-gradient(90deg,#F7FAFF,#fff)}
+  .marketing-hero{display:none}
+  body.present-mode>header,body.present-mode nav.tabs{display:none!important}
+  body.present-mode .wrap{max-width:1400px;padding-top:16px}
+  body.present-mode #sec-ekonomika>.card:not(.marketing-hero):not(.ek-charts){display:none!important}
+  body.present-mode .marketing-hero{position:relative;display:block;overflow:hidden;min-height:520px;padding:54px 58px!important;border:0!important;border-radius:22px!important;color:#fff;background:radial-gradient(circle at 86% 22%,rgba(85,115,255,.36),transparent 24%),radial-gradient(circle at 75% 110%,rgba(35,190,153,.2),transparent 31%),linear-gradient(135deg,#071A3B 0%,#0D3479 58%,#155EEF 125%)!important;box-shadow:0 24px 60px rgba(7,26,59,.22)!important}
+  body.present-mode .marketing-hero:before{content:"";position:absolute;right:-110px;top:-160px;width:480px;height:480px;border:1px solid rgba(255,255,255,.12);border-radius:50%;box-shadow:0 0 0 54px rgba(255,255,255,.025),0 0 0 108px rgba(255,255,255,.018)}
+  .marketing-inner{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,.7fr);align-items:center;gap:48px}
+  .marketing-eyebrow{margin-bottom:22px;color:#9DB9FF;font-size:10px;font-weight:850;letter-spacing:.18em;text-transform:uppercase}
+  .marketing-hero h1{max-width:760px;margin:0;color:#fff;font-size:clamp(36px,4.2vw,66px);line-height:1.02;font-weight:780;letter-spacing:-.052em}
+  .marketing-claim{max-width:720px;margin:22px 0 0;color:rgba(255,255,255,.72);font-size:16px;line-height:1.6}.marketing-claim b{color:#fff;font-weight:700}
+  .marketing-ring{position:relative;display:grid;place-items:center;width:280px;height:280px;margin:auto;border-radius:50%;background:conic-gradient(#62E6B5 0 var(--margin),rgba(255,255,255,.13) var(--margin) 100%);box-shadow:0 24px 58px rgba(0,0,0,.2),0 0 0 1px rgba(255,255,255,.13)}
+  .marketing-ring:after{content:"";position:absolute;inset:20px;border-radius:50%;background:#0C2B62;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+  .marketing-ring-value{position:relative;z-index:1;text-align:center}.marketing-ring-value b{display:block;color:#fff;font-size:54px;line-height:1;font-weight:800;letter-spacing:-.055em}.marketing-ring-value span{display:block;margin-top:9px;color:#9DB9FF;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+  .marketing-proof{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:48px;border-top:1px solid rgba(255,255,255,.15)}
+  .marketing-proof>div{padding:22px 24px 0 0}.marketing-proof>div+div{padding-left:24px;border-left:1px solid rgba(255,255,255,.13)}
+  .marketing-proof b{display:block;color:#fff;font-size:25px;line-height:1.1;letter-spacing:-.035em}.marketing-proof span{display:block;margin-top:6px;color:rgba(255,255,255,.58);font-size:10px;font-weight:700;letter-spacing:.075em;text-transform:uppercase}
+  body.present-mode .ek-charts{padding:30px!important;border:0!important;box-shadow:none!important;background:transparent!important}
+  body.present-mode .ek-charts>h2{font-size:22px}body.present-mode .ek-charts>.hint{max-width:720px;font-size:13px}
+  body.present-mode .ek-charts #ek_charts>div:first-child{display:none!important}
+  body.present-mode .ek-chart-box{min-height:310px;padding:23px;border-color:#D7E0EC;box-shadow:0 10px 30px rgba(16,24,40,.07)}
+  /* Unified presentation system: one surface, one radius, one shadow language */
+  body{background:#F4F6F9;background-image:none}
+  header{overflow:visible;background:#123C8C;box-shadow:none;border-bottom:1px solid rgba(255,255,255,.15)}
+  header:after{display:none}
+  header h1:before{border-color:rgba(255,255,255,.28);border-radius:8px;background:rgba(255,255,255,.1);box-shadow:none}
+  .drop{border-color:#AFC2E6;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .drop:hover{box-shadow:0 5px 16px rgba(16,24,40,.07);transform:none}
+  button.btn{background:var(--blue);box-shadow:none}button.btn:hover:not(:disabled){background:#104DCC;box-shadow:none}
+  .viewbar,nav.tabs{border-radius:10px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.06);backdrop-filter:none}
+  nav.tabs button.active{box-shadow:none;background:var(--blue-soft)}
+  .card,#sec-ekonomika>.card{border:1px solid #DDE3EC;border-radius:14px;padding:20px 22px;margin-bottom:16px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.055)}
+  .card:hover,#sec-ekonomika>.card:hover{border-color:#C9D3E0}
+  #sec-ekonomika>.card:before{display:none}
+  .card h2,#sec-ekonomika>.card>h2:first-child{gap:0;font-size:16px;font-weight:750;letter-spacing:-.015em}
+  .card h2:before,#sec-ekonomika>.card>h2:first-child:before{content:""!important;display:inline-block;flex:0 0 3px;width:3px;height:17px;margin:0 10px 0 0;border:0;border-radius:3px;color:transparent;background:var(--blue);box-shadow:none;font-size:0;vertical-align:-2px}
+  .ek-project,.ek-summary{background:#fff}.ek-project:after{right:22px;top:20px;border-radius:6px}
+  .ek-project>.filter{border-radius:9px;background:#F8FAFC}
+  .kpi,.ek-summary .kpi{border-radius:10px;box-shadow:none}
+  .ek-summary .kpi:hover{box-shadow:none}
+  .ek-data-card table{border-radius:9px}.ek-data-card thead th{background:#EEF2F6}
+  .ek-data-card tfoot td,.ek-data-card tfoot tr:last-child td{background:#EDF2F8}
+  .ek-competitors>div[style*="border:1px solid var(--line)"]{border-radius:10px!important;background:#fff!important;box-shadow:none}
+  .ek-competitors>div[style*="border:1px solid var(--line)"]:hover{transform:none;box-shadow:none}
+  .ek-charts #ek_charts>div:first-child{box-shadow:none!important}
+  .ek-chart-box{border-radius:12px;background:#fff;box-shadow:none}
+  .ek-chart-box:after{display:none}
+  .ek-donut{box-shadow:0 6px 18px rgba(22,55,98,.1)}
+  .empty-state{border-radius:10px;background:#FAFBFC}.empty-state:before{border-radius:9px;box-shadow:none}
+  body.present-mode .viewbar{background:#fff}
+  @media(max-width:760px){
+    header{padding:17px 16px}header h1{font-size:18px}header p{margin-left:46px;font-size:12px}
+    .wrap{padding:16px 12px 48px}.drop{padding:21px 14px}.card{padding:15px 13px;border-radius:10px}
+    .toolbar{align-items:stretch}.toolbar .btn{flex:1 1 auto}.status{flex-basis:100%;padding:7px 10px}.viewbar{align-items:flex-start}.viewbar-copy span{display:none}.view-switch{flex:0 0 auto}
+    .kpis{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}.kpi{min-height:84px;padding:12px}.kpi .v{font-size:21px}
+    th,td{padding:7px 8px}.norm{grid-template-columns:1fr}
+    #sec-ekonomika>.card{padding:18px 14px;margin-bottom:14px}#sec-ekonomika>.card>h2:first-child{padding-right:0}.ek-project>h2:first-child{padding-right:76px!important}.ek-project:after{right:12px;top:17px}
+    .executive-hero{grid-template-columns:1fr;gap:10px}.executive-support{gap:9px}.executive-secondary{grid-template-columns:1fr;gap:7px}
+    .ek-summary .kpi-hero{min-height:150px;padding:21px}.ek-summary .kpi-hero:before{display:block;left:21px;right:21px;top:45px}.ek-summary .kpi-hero:after{left:21px;top:18px}.ek-summary .kpi-hero .v{font-size:38px}
+    .ek-summary .kpi-support{min-height:92px;padding:13px}.ek-summary .kpi-support .v{font-size:23px}.ek-summary .kpi-secondary{min-height:62px}
+    .ek-project>.filter{padding:10px}.ek-project>.filter label{width:100%;justify-content:space-between}.ek-project>.filter label input{flex:1}
+    .ek-data-card table{min-width:700px}.ek-data-card th,.ek-data-card td{height:48px;padding:7px 9px}
+    .ek-data-card td input:not([type="file"]),.ek-data-card td select{max-width:140px}
+    .ek-chart-box{min-height:0;padding:15px}.ek-donut-layout{grid-template-columns:138px minmax(0,1fr);gap:12px}.ek-donut{width:136px;height:136px}.ek-donut:after{inset:23px}.ek-donut-center{inset:32px}.ek-donut-center b{font-size:14px}.ek-donut-row{font-size:9.5px}
+    .profit-equation{grid-template-columns:1fr;gap:6px}.profit-step{min-height:88px}.profit-operator{height:22px}.profit-step b{font-size:21px}.benchmark-summary b{font-size:16px}
+    body.present-mode .wrap{padding:10px 10px 42px}.marketing-inner{grid-template-columns:1fr;gap:30px}body.present-mode .marketing-hero{min-height:0;padding:34px 25px!important;border-radius:16px!important}.marketing-hero h1{font-size:38px}.marketing-claim{font-size:14px}.marketing-ring{width:220px;height:220px}.marketing-ring-value b{font-size:43px}.marketing-proof{grid-template-columns:1fr;margin-top:34px}.marketing-proof>div,.marketing-proof>div+div{padding:16px 0;border-left:0;border-bottom:1px solid rgba(255,255,255,.12)}.marketing-proof>div:last-child{border-bottom:0}.marketing-proof b{font-size:22px}body.present-mode .ek-charts{padding:22px 14px!important}
+  }
+  @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
   @media print{
-    header,nav.tabs,.toolbar,.drop,.copybtn,.no-print,.filter{display:none!important}
-    section.tab{display:block!important;page-break-inside:avoid}
-    .card{break-inside:avoid;border:1px solid #ccc}
-    body{background:#fff;font-size:11px}
+    :root{--ink:#111;--mut:#555;--line:#ccc;--bg:#fff;--surface:#fff}
+    header,nav.tabs,.toolbar,.drop,.viewbar,.copybtn,.no-print,.filter{display:none!important}
+    section.tab{display:block!important;page-break-inside:avoid}.wrap{max-width:none;padding:0}
+    .card{overflow:visible;break-inside:avoid;border:1px solid #bbb;box-shadow:none;padding:10px;margin-bottom:10px}
+    .card h2:before,.kpi:after{display:none}.kpi{background:#fff;border:1px solid #bbb;box-shadow:none;min-height:0}
+    table{min-width:0;font-size:10px}th,td{padding:4px 5px}tbody tr:nth-child(even){background:#f6f6f6}
+    body{background:#fff;font-size:11px;color:#111}
   }
 </style>
 </head>
@@ -74,6 +289,14 @@
     <button id="print" class="btn sec" disabled>🖨 Tlač / PDF</button>
     <button id="reset" class="btn sec" disabled>Vymazať</button>
     <span id="status" class="status">Zatiaľ nenahrané žiadne súbory.</span>
+  </div>
+
+  <div class="viewbar" id="viewbar">
+    <div class="viewbar-copy"><b>Režim zobrazenia</b><span>Úpravy pre prácu · Prezentácia pre klienta alebo poradu</span></div>
+    <div class="view-switch" role="group" aria-label="Režim zobrazenia">
+      <button type="button" data-view="edit" class="active">✎ Úpravy</button>
+      <button type="button" data-view="present">▣ Prezentácia</button>
+    </div>
   </div>
 
   <nav class="tabs" id="tabs" style="display:none"></nav>
@@ -1016,7 +1239,9 @@
       if (/^PODLAHOVA PLOCHA/.test(dname)) {
         if (interior != null) floor.groupSubtotals.push(interior);
         if (openUnit) {
-          if (!openUnit.hasOwnArea) openUnit.interior = interior; // byt/apartmán: plocha = medzisúčet
+          // byt/apartmán: plocha = medzisúčet; ak je medzisúčet PRÁZDNY (napr. Topolcianska export
+          // ho nevyplnil), fallback = súčet plôch izieb jednotky, nech jednotka nemá 0.
+          if (!openUnit.hasOwnArea) openUnit.interior = (interior != null ? interior : (openUnit._roomInt || null));
           openUnit = null;
         }
         continue;
@@ -1452,7 +1677,13 @@
   var lastLoadNote = '';                // vysvetlenie, keď sa z podkladu nič nenačítalo
   var lastFiles = null;                 // pre prepočet po zmene kategórie
   var flatmixModel = null;              // flatmix z PDF výkresov (null = žiadne PDF)
-  var catOverrides = {};                // deburr(name) -> kategória (ručná zmena)
+  var UI_VIEW_KEY='vi_ui_view_v1', UI_COLLAPSE_KEY='vi_ui_collapsed_v1';
+  var uiCollapsed=(function(){try{return JSON.parse(localStorage.getItem(UI_COLLAPSE_KEY)||'{}')||{};}catch(e){return {};}})();
+  // Naučené kategórie: deburr(name) -> kategória. UČÍ SA z ručných preradení (perzistentné v
+  // localStorage) → nezname miestnosti, ktore raz zaradis, sa nabuduce zaradia SAMY.
+  var CAT_LEARN_KEY='vi_cat_overrides_v1';
+  var catOverrides = (function(){ try{ return JSON.parse(localStorage.getItem(CAT_LEARN_KEY)||'{}')||{}; }catch(e){ return {}; } })();
+  try{ Core.setCategoryOverrides(catOverrides); }catch(e){}   // aplikuj naučené hneď na štarte
   var CATS = ['OBYTNÁ','KUCHYŇA','HYGIENA','KOMUNIKÁCIA','SPOLOČNÉ KOMUNIKÁCIE','EXTERIÉR','SKLAD','GARÁŽ / PARKOVANIE','KANCELÁRIA','TECHNICKÉ / NEBYTOVÉ','VEREJNÉ','SPACÍ KÚT','INÉ (NA OVERENIE)'];
   function catSelect(name,cur){
     var opts=CATS.map(function(c){return '<option'+(c===cur?' selected':'')+'>'+esc(c)+'</option>';}).join('');
@@ -1463,7 +1694,37 @@
   /* ---------- formátovanie ---------- */
   function fmt(n,dec){ if(n==null||isNaN(n)) return '—'; return Number(n).toLocaleString('sk-SK',{minimumFractionDigits:dec==null?2:dec,maximumFractionDigits:dec==null?2:dec}); }
   function pct(n){ return n==null?'—':(n*100).toLocaleString('sk-SK',{minimumFractionDigits:1,maximumFractionDigits:1})+' %'; }
+  function fmtMoneyShort(n){
+    if(n==null||isNaN(n)) return '—'; var a=Math.abs(n),v,s;
+    if(a>=1000000){v=n/1000000;s=' mil. €';}
+    else if(a>=1000){v=n/1000;s=' tis. €';}
+    else return fmt(n)+' €';
+    return Number(v).toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2})+s;
+  }
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  /* ---------- prezentačné UI ---------- */
+  function setViewMode(mode){
+    mode=mode==='present'?'present':'edit'; document.body.classList.toggle('present-mode',mode==='present');
+    document.querySelectorAll('[data-view]').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-view')===mode);});
+    try{localStorage.setItem(UI_VIEW_KEY,mode);}catch(e){}
+    if(mode==='present'&&typeof EK!=='undefined'&&EK&&typeof ekRerender==='function') ekRerender();
+  }
+  function cardKey(card){var sec=card.closest&&card.closest('section.tab');var h=card.firstElementChild;return (sec?sec.id:'content')+'|'+(h?h.textContent.replace(/[⌄▾]/g,'').trim():'karta');}
+  function enhancePresentationUI(root){
+    (root||document).querySelectorAll('.card').forEach(function(card){
+      if(card.classList.contains('ek-project')||card.classList.contains('ek-summary')) return;
+      var h=card.firstElementChild;if(!h||h.tagName!=='H2'||h.querySelector('[data-collapse]')) return;
+      var key=cardKey(card),btn=document.createElement('button');btn.type='button';btn.className='card-collapse no-print';btn.setAttribute('data-collapse','1');btn.setAttribute('aria-label','Zbaliť alebo rozbaliť kartu');btn.textContent='⌄';h.appendChild(btn);
+      if(uiCollapsed[key]) card.classList.add('collapsed');
+    });
+  }
+  document.addEventListener('click',function(e){
+    var vb=e.target.closest&&e.target.closest('[data-view]');if(vb){setViewMode(vb.getAttribute('data-view'));return;}
+    var cb=e.target.closest&&e.target.closest('[data-collapse]');if(cb){var card=cb.closest('.card');if(!card)return;card.classList.toggle('collapsed');uiCollapsed[cardKey(card)]=card.classList.contains('collapsed');try{localStorage.setItem(UI_COLLAPSE_KEY,JSON.stringify(uiCollapsed));}catch(err){}return;}
+    var up=e.target.closest&&e.target.closest('[data-open-upload]');if(up){fileInput.click();}
+  });
+  setViewMode((function(){try{return localStorage.getItem(UI_VIEW_KEY)||'edit';}catch(e){return 'edit';}})());
 
   /* ---------- tabuľka s kopírovaním ---------- */
   var tblSeq=0;
@@ -1489,12 +1750,22 @@
     navigator.clipboard.writeText(lines.join('\n')).then(function(){ b.textContent='✓ Skopírované'; setTimeout(function(){b.textContent='⧉ Kopírovať';},1200); });
   });
 
+  // „Zabudnúť naučené" — vymaže naučené kategórie
+  document.addEventListener('click',function(e){
+    var b=e.target.closest && e.target.closest('[data-catreset]'); if(!b) return;
+    if(!confirm('Zabudnúť všetky naučené kategórie? Miestnosti sa vrátia na automatické zaradenie.')) return;
+    catOverrides={}; Core.setCategoryOverrides({}); try{ localStorage.removeItem(CAT_LEARN_KEY); }catch(err){}
+    if(lastFiles){ model=Core.buildModel(lastFiles); render();
+      var bt=[].find.call(document.querySelectorAll('nav.tabs button'),function(x){return x.getAttribute('data-tab')==='typy';}); if(bt) bt.click(); }
+  });
+
   // zmena kategórie miestnosti v záložke Typy → prepočet celej analýzy
   document.addEventListener('change',function(e){
     var sel=e.target.closest && e.target.closest('.catsel'); if(!sel) return;
     var name=decodeURIComponent(sel.getAttribute('data-name'));
     catOverrides[Core.deburr(name)]=sel.value;
     Core.setCategoryOverrides(catOverrides);
+    try{ localStorage.setItem(CAT_LEARN_KEY, JSON.stringify(catOverrides)); }catch(e){}   // NAUČ sa (perzistentne)
     if(lastFiles){ model=Core.buildModel(lastFiles); render();
       var b=[].find.call(document.querySelectorAll('nav.tabs button'),function(x){return x.getAttribute('data-tab')==='typy';}); if(b) b.click();
     }
@@ -1593,12 +1864,15 @@
   function handleFiles(fileList){
     var arr=[].slice.call(fileList); if(!arr.length) return;
     setStatus('Načítavam…'); lastLoadNote='';
-    var out=[], pdfs=[], pdfFiles=[], imgFiles=[];
+    var out=[], pdfs=[], pdfFiles=[], imgFiles=[], skipped=[];
+    // Výkresy BEZ legendy miestností — pohľady, rezy, situácie, základy, krov, strecha,
+    // detaily, skladby, výkazy, titulka, správa… Preskočíme ich (nemá zmysel ich OCR-ovať).
+    var SKIP_RE=/pohl.?ad|rezoph|(^|[ _.\-])rez([ _.\-]|$)|situ.?c|z.klad|krov|strech|detail|skladb|v.kaz|titulk|spr.va|obsah|kontajner/i;
 
     var chain=Promise.resolve();
     arr.forEach(function(f){
       chain=chain.then(function(){
-        if(/\.pdf$/i.test(f.name)){ pdfFiles.push(f); return; }
+        if(/\.pdf$/i.test(f.name)){ if(SKIP_RE.test(f.name)){ skipped.push(f.name); return; } pdfFiles.push(f); return; }
         if(/\.(png|jpe?g|tiff?|bmp|webp)$/i.test(f.name)){ imgFiles.push(f); return; }  // sken/obrázok → OCR cez helper
         // JSON z tools/krivky_na_text.py — výkresy, kde je legenda prevedená na krivky
         if(/\.json$/i.test(f.name)){
@@ -1686,14 +1960,14 @@
       });
     });
 
-    chain.then(function(){ build(out,pdfs); });
+    chain.then(function(){ build(out,pdfs,skipped); });
   }
 
   function setStatus(s){ document.getElementById('status').textContent=s; }
 
-  function build(files,pdfs){
-    pdfs=pdfs||[];
-    if(!files.length && !pdfs.length){ setStatus(lastLoadNote || 'Nenašiel som žiadne CSV, PDF ani obrázok.'); return; }
+  function build(files,pdfs,skipped){
+    pdfs=pdfs||[]; skipped=skipped||[];
+    if(!files.length && !pdfs.length){ setStatus((skipped.length?('Preskočené (bez legendy): '+skipped.length+' výkresov. '):'')+(lastLoadNote || 'Nenašiel som žiadne CSV, PDF ani obrázok.')); return; }
     lastLoadNote='';
     // dva identické podklady (rovnaký obsah) sa počítajú raz; rôzne bloky/podlažia ostávajú
     var _seen={}; files=files.filter(function(f){ if(_seen[f.text]) return false; _seen[f.text]=1; return true; });
@@ -1709,13 +1983,16 @@
     var parts=[];
     if(files.length){ parts.push(files.length+' CSV • '+model.floors.length+' podlaží • '+(model.units.length+model.skladUnits.length)+' jednotiek'); }
     if(pdfs.length){ parts.push(pdfs.length+' PDF • '+flatmixModel.units.length+' jednotiek z výkresov'); }
+    if(skipped.length){ parts.push('⏭ preskočených '+skipped.length+' výkresov (pohľady/rezy/situácie/skladby…)'); }
     setStatus(parts.join('  |  '));
+    document.body.classList.add('has-data');
     ['xlsx','print','reset'].forEach(function(id){document.getElementById(id).disabled=false;});
     render();
   }
 
   document.getElementById('reset').addEventListener('click',function(){
     model=null; flatmixModel=null; lastFiles=null;
+    document.body.classList.remove('has-data');
     document.getElementById('content').innerHTML=''; document.getElementById('tabs').style.display='none';
     ['xlsx','print','reset'].forEach(function(id){document.getElementById(id).disabled=true;});
     setStatus('Zatiaľ nenahrané žiadne súbory.'); fileInput.value='';
@@ -1740,7 +2017,9 @@
   function render(){
     var TABS=activeTabs();
     var nav=document.getElementById('tabs'); nav.style.display='flex';
-    nav.innerHTML=TABS.map(function(t,i){return '<button data-tab="'+t[0]+'"'+(i===0?' class="active"':'')+'>'+t[1]+'</button>';}).join('');
+    var groupFor=function(k){if(k==='ekonomika')return'Projekt';if(['bilancie','podlazia','podlaziaso'].indexOf(k)>=0)return'Budova';if(['jednotky','dispozicie','typy','povrchy'].indexOf(k)>=0)return'Jednotky';if(['normy','kontrola'].indexOf(k)>=0)return'Kontrola';return'Nástroje';};
+    var prevGroup='';
+    nav.innerHTML=TABS.map(function(t,i){var g=groupFor(t[0]),start=g!==prevGroup;prevGroup=g;return '<button data-tab="'+t[0]+'" data-group="'+g+'" title="'+g+' · '+t[1]+'" class="'+(i===0?'active ':'')+(start?'group-start':'')+'">'+t[1]+'</button>';}).join('');
     var content=document.getElementById('content');
     content.innerHTML=TABS.map(function(t,i){return '<section class="tab'+(i===0?' active':'')+'" id="sec-'+t[0]+'">'+renderTab(t[0])+'</section>';}).join('');
     nav.querySelectorAll('button').forEach(function(b){ b.addEventListener('click',function(){
@@ -1748,6 +2027,7 @@
       content.querySelectorAll('section.tab').forEach(function(s){s.classList.remove('active');});
       document.getElementById('sec-'+b.getAttribute('data-tab')).classList.add('active');
     });});
+    enhancePresentationUI(content);
     if(model){ wireJednotkyFilter(); wireNorms(); }
   }
 
@@ -1757,10 +2037,8 @@
   function renderTab(key){
     if(key==='flatmix') return renderFlatmix();
     if(key==='ekonomika') return renderEkonomika();   // funguje aj bez CSV
-    if(!model) return card('Potrebná legenda miestností v CSV',
-      'Táto záložka počíta z legendy miestností. Teraz sú nahraté len PDF výkresy, '+
-      'z ktorých sa dá zostaviť flatmix — nájdeš ho v poslednej záložke.',
-      '<p class="hint">Nahraj CSV exporty legendy (alebo ZIP) a záložka sa vyplní.</p>');
+    if(!model) return card('Zatiaľ bez údajov pre túto sekciu','',
+      '<div class="empty-state"><h3>Nahraj podklady projektu</h3><p>Táto časť sa automaticky vyplní z CSV legendy, PDF výkresu alebo obrázka. Flatmix môže fungovať aj samostatne z PDF.</p><button class="btn" type="button" data-open-upload>↑ Nahrať podklady</button></div>');
     var st=model.stats, T=st.totals;
     if(key==='bilancie'){
       var B=model.bilancie, U=B.uzitkova, K=B.kapacity;
@@ -1854,7 +2132,10 @@
     }
     if(key==='typy'){
       var rows=st.roomTypeRows.map(function(r){return [r.name,raw(catSelect(r.name,r.cat)),r.count,fmt(r.interior),fmt(r.exterior)];});
-      return card('Typy miestností','Klikni na kategóriu a zmeň zaradenie miestnosti — celá analýza (Bilancie, vlastníctvo, plochy) sa prepočíta. Zmena platí pre všetky miestnosti s rovnakým názvom. Pozn.: komunikácie sa členia podľa polohy — <b>KOMUNIKÁCIA</b> = v jednotke (predajná plocha), <b>SPOLOČNÉ KOMUNIKÁCIE</b> = spoločné priestory; tá istá „CHODBA" tak môže byť v dvoch riadkoch.',
+      var learned=Object.keys(catOverrides).length;
+      var learnNote='<b>Appka sa učí:</b> keď zmeníš zaradenie, <b>zapamätá si ho</b> a použije aj pri ďalších podkladoch (aj po zatvorení). '+
+        (learned? '<button class="copybtn" data-catreset="1" style="margin-left:6px">🔄 Zabudnúť naučené ('+learned+')</button>' : '');
+      return card('Typy miestností','Klikni na kategóriu a zmeň zaradenie miestnosti — celá analýza sa prepočíta. Zmena platí pre všetky miestnosti s rovnakým názvom. '+learnNote+'<br>Pozn.: komunikácie sa členia podľa polohy — <b>KOMUNIKÁCIA</b> = v jednotke (predajná plocha), <b>SPOLOČNÉ KOMUNIKÁCIE</b> = spoločné priestory.',
         makeTable(['Názov miestnosti','Kategória','Počet','Interiér m²','Exteriér m²'],rows));
     }
     if(key==='efektivita'){
@@ -2411,7 +2692,7 @@
     var manual=[];
     (p.income||[]).forEach(function(r){ if(!r.src1 && !r.src2) manual.push('Príjmy: '+(r.label||'')); });
     (p.stavba||[]).forEach(function(r){ if(!r.src) manual.push('Stavba: '+(r.label||'')); });
-    return '<div class="card"><h2>Mapovanie plôch</h2>'+
+    return '<div class="card ek-map"><h2>Mapovanie plôch</h2>'+
       '<p class="hint">Odkiaľ sa berie ktorá plocha pri tlačidle <b>„Načítať plochy z analýzy"</b>. '+
       'Každý zdroj = kategória z analýzy (záložky vľavo); riadky bez zdroja sa zadávajú ručne '+
       '(napr. státia v kusoch, terasy, spevnené plochy). Pri vlastnom projekte sa väzby prispôsobia jeho riadkom.</p>'+
@@ -2486,7 +2767,7 @@
       else cell='<td colspan="4" style="color:#94a3b8">— zatiaľ nevyhľadané —</td>';
       return '<tr><td>'+num+'</td>'+cell+'<td class="no-print"><button class="btn sec" data-ekact="katdel" data-idx="'+i+'" style="padding:2px 8px;font-size:12px" title="Zmazať parcelu">✕</button></td></tr>';
     }).join('');
-    return '<div class="card"><h2>Kataster (parcely)</h2>'+
+    return '<div class="card ek-kataster"><h2>Kataster (parcely)</h2>'+
       '<p class="hint">Zadaj parcelné čísla a katastrálne územie → verejné údaje z katastra '+
       '(<b>výmera, druh pozemku, kat. územie, číslo LV</b>). Vlastníci sú osobné údaje za reCAPTCHA — '+
       'tie ukáže oficiálny <b>portál</b> (odkaz v riadku). Funguje cez appku spustenú pomocníkom.</p>'+
@@ -2729,8 +3010,9 @@
       var y=top+i*rowH, bh=rowH-11, by=y+5.5;
       var w=Math.max(2,(Math.abs(r.value)/max)*barW), col=r.color||'#2C7BB6';
       s+='<text x="'+(padL-8)+'" y="'+(y+rowH/2+3.6)+'" text-anchor="end" font-size="11.5" fill="#5b6b7a">'+ekSvgEsc(r.label)+'</text>'
-        +'<rect x="'+padL+'" y="'+by+'" width="'+barW+'" height="'+bh+'" rx="3" fill="#eef3f9"/>'
-        +'<rect x="'+padL+'" y="'+by+'" width="'+w.toFixed(1)+'" height="'+bh+'" rx="3" fill="'+col+'"/>'
+        +'<rect x="'+padL+'" y="'+by+'" width="'+barW+'" height="'+bh+'" rx="99" fill="#eef3f9"/>'
+        +'<rect x="'+padL+'" y="'+by+'" width="'+w.toFixed(1)+'" height="'+bh+'" rx="99" fill="'+col+'"/>'
+        +'<circle cx="'+(padL+w).toFixed(1)+'" cy="'+(by+bh/2).toFixed(1)+'" r="'+(bh/2+2).toFixed(1)+'" fill="#fff" stroke="'+col+'" stroke-width="3"/>'
         +'<text x="'+(padL+w+5)+'" y="'+(y+rowH/2+3.6)+'" font-size="11" font-weight="600" fill="#1b2733">'+ekSvgEsc(fm(r.value))+'</text>';
     });
     if(o.ref!=null && o.ref>0){
@@ -2741,9 +3023,17 @@
     return s+'</svg>';
   }
   function ekChartBox(title, sub, body){
-    return '<div style="flex:1 1 320px;min-width:280px;background:#fbfcfe;border:1px solid var(--line);border-radius:8px;padding:12px 14px">'+
-      '<div style="font-size:13px;font-weight:600;color:var(--ink)">'+title+'</div>'+
-      '<div style="font-size:11px;color:var(--mut);margin:1px 0 9px">'+(sub||'&nbsp;')+'</div>'+body+'</div>';
+    return '<div class="ek-chart-box"><div class="ek-chart-title">'+title+'</div>'+
+      '<div class="ek-chart-sub">'+(sub||'&nbsp;')+'</div>'+body+'</div>';
+  }
+  function ekDonut(rows,label){
+    rows=(rows||[]).filter(function(r){return r.value>0;});
+    if(!rows.length)return '<p class="hint" style="margin:6px 0">Žiadne dáta — vyplň hodnoty vyššie.</p>';
+    var cols=['#155EEF','#20A77A','#7A5AF8','#F79009','#E74C6F','#32B8C6','#667085','#84ADFF','#53B1A1'];
+    var total=rows.reduce(function(a,r){return a+r.value;},0),at=0,stops=[];
+    rows.forEach(function(r,i){var start=at/total*100;at+=r.value;var end=at/total*100;stops.push(cols[i%cols.length]+' '+start.toFixed(2)+'% '+end.toFixed(2)+'%');});
+    var legend=rows.slice(0,7).map(function(r,i){return '<div class="ek-donut-row"><span class="ek-donut-dot" style="background:'+cols[i%cols.length]+'"></span><span class="ek-donut-label" title="'+esc(r.label)+'">'+ekSvgEsc(r.label)+'</span><span class="ek-donut-value">'+(r.value/total*100).toFixed(0)+' %</span></div>';}).join('');
+    return '<div class="ek-donut-layout"><div class="ek-donut" style="background:conic-gradient('+stops.join(',')+')"><div class="ek-donut-center"><b>'+ekSvgEsc(ekFmtEur(total))+'</b><span>'+ekSvgEsc(label)+'</span></div></div><div class="ek-donut-legend">'+legend+'</div></div>';
   }
   // HERO: veľké KPI dlaždice (Zisk zvýraznený) + merač marže s cieľovým pásmom 15–20 %
   function ekHero(c){
@@ -2765,33 +3055,27 @@
       tile('Príjmy (bez DPH)', ekFmtEur(c.prijmyBez), blue)+
       tile('Náklady (bez DPH)', ekFmtEur(c.nakladyBez), amber)+'</div>';
   }
-  // VODOPÁD: Príjmy − Náklady = Zisk (náklady „ukroja" z príjmov, ostane zisk)
+  // Prezentačná rovnica: jasne ukáže, ako z príjmov a nákladov vzniká zisk.
   function ekWaterfall(prijmy,naklady,zisk){
-    var W=480,padL=92,padR=96,rowH=30,top=6,H=top+3*rowH+4;
-    var max=Math.max(prijmy,naklady,1), barW=W-padL-padR;
-    function px(v){ return (v/max)*barW; }
-    var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:'+W+'px;display:block" font-family="inherit">';
-    function bar(i,label,x,w,col,val){
-      var y=top+i*rowH, bh=rowH-12, by=y+6;
-      return '<text x="'+(padL-8)+'" y="'+(y+rowH/2+3.6)+'" text-anchor="end" font-size="11.5" fill="#5b6b7a">'+ekSvgEsc(label)+'</text>'
-        +'<rect x="'+(padL+x).toFixed(1)+'" y="'+by+'" width="'+Math.max(2,w).toFixed(1)+'" height="'+bh+'" rx="3" fill="'+col+'"/>'
-        +'<text x="'+(padL+x+Math.max(2,w)+5).toFixed(1)+'" y="'+(y+rowH/2+3.6)+'" font-size="11" font-weight="600" fill="#1b2733">'+ekSvgEsc(ekFmtEur(val))+'</text>';
-    }
-    var zx=(zisk>0?px(zisk):0);
-    s+=bar(0,'Príjmy',0,px(prijmy),'#1964AA',prijmy);
-    s+=bar(1,'− Náklady',zx,px(naklady),'#c0714a',-naklady);          // pláva od Zisku po Príjmy
-    s+=bar(2,'= Zisk',0,px(Math.abs(zisk)),(zisk<0?'#c0392b':'#1a7f47'),zisk);
-    // jemné spojnice (koniec Príjmov a koniec Zisku)
-    s+='<line x1="'+(padL+px(prijmy)).toFixed(1)+'" y1="'+(top+6)+'" x2="'+(padL+px(prijmy)).toFixed(1)+'" y2="'+(top+2*rowH)+'" stroke="#cbd5e1" stroke-dasharray="3 3"/>';
-    return s+'</svg>';
+    return '<div class="profit-equation"><div class="profit-step income"><b>'+ekSvgEsc(ekFmtEur(prijmy))+'</b><span>Príjmy</span></div><div class="profit-operator">−</div><div class="profit-step cost"><b>'+ekSvgEsc(ekFmtEur(naklady))+'</b><span>Náklady</span></div><div class="profit-operator">=</div><div class="profit-step result"><b>'+ekSvgEsc(ekFmtEur(zisk))+'</b><span>Výsledný zisk</span></div></div>';
+  }
+  function ekBenchmark(comp,our){
+    var vals=comp.map(function(x){return x.value;});if(our>0)vals.push(our);if(!vals.length)return '';
+    var avg=comp.length?comp.reduce(function(a,x){return a+x.value;},0)/comp.length:0,min=Math.min.apply(null,vals),max=Math.max.apply(null,vals),range=Math.max(1,max-min),lo=Math.max(0,min-range*.14),hi=max+range*.14,W=520,H=126,x0=36,x1=484,y=66;
+    function px(v){return x0+(v-lo)/(hi-lo)*(x1-x0);}var s='<div class="benchmark-summary">'+(our>0?'<div class="ours"><b>'+Math.round(our).toLocaleString('sk-SK')+' €</b><span>Naša cena / m²</span></div>':'')+(avg>0?'<div><b>'+Math.round(avg).toLocaleString('sk-SK')+' €</b><span>Priemer konkurencie</span></div>':'')+'</div><svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block" font-family="inherit" role="img" aria-label="Porovnanie ceny za meter štvorcový"><line x1="'+x0+'" y1="'+y+'" x2="'+x1+'" y2="'+y+'" stroke="#CBD5E1" stroke-width="3" stroke-linecap="round"/>';
+    comp.forEach(function(r,i){var x=px(r.value),cy=y+(i%2?13:-13);s+='<line x1="'+x.toFixed(1)+'" y1="'+y+'" x2="'+x.toFixed(1)+'" y2="'+cy+'" stroke="#D6DDE7"/><circle cx="'+x.toFixed(1)+'" cy="'+cy+'" r="5" fill="#98A2B3"/><text x="'+x.toFixed(1)+'" y="'+(cy+(i%2?17:-10))+'" text-anchor="middle" font-size="8.5" fill="#667085">'+Math.round(r.value).toLocaleString('sk-SK')+'</text>';});
+    if(avg>0){var ax=px(avg);s+='<line x1="'+ax.toFixed(1)+'" y1="18" x2="'+ax.toFixed(1)+'" y2="106" stroke="#7A5AF8" stroke-width="1.5" stroke-dasharray="4 4"/><text x="'+ax.toFixed(1)+'" y="116" text-anchor="middle" font-size="8.5" font-weight="700" fill="#6941C6">PRIEMER</text>';}
+    if(our>0){var ox=px(our);s+='<circle cx="'+ox.toFixed(1)+'" cy="'+y+'" r="13" fill="#fff" stroke="#155EEF" stroke-width="5"/><circle cx="'+ox.toFixed(1)+'" cy="'+y+'" r="4" fill="#155EEF"/><rect x="'+(ox-38).toFixed(1)+'" y="22" width="76" height="20" rx="10" fill="#155EEF"/><text x="'+ox.toFixed(1)+'" y="35.5" text-anchor="middle" font-size="8.5" font-weight="800" fill="#fff">NÁŠ PROJEKT</text>';}
+    s+='<text x="'+x0+'" y="123" font-size="8.5" fill="#98A2B3">'+Math.round(lo).toLocaleString('sk-SK')+' €</text><text x="'+x1+'" y="123" text-anchor="end" font-size="8.5" fill="#98A2B3">'+Math.round(hi).toLocaleString('sk-SK')+' €</text></svg><div class="benchmark-legend">'+comp.slice(0,5).map(function(r){return '<span class="benchmark-chip" title="'+esc(r.label)+'">'+ekSvgEsc(r.label)+'</span>';}).join('')+'</div>';
+    return s;
   }
   function ekChartsInner(p,c){
     var costs=[{label:'Stavba',value:c.stavba},{label:'Ostatné',value:c.ostatne}]
       .concat(c.nkLines.map(function(l){return {label:l.label,value:l.bez};}))
       .filter(function(r){return r.value>0;}).sort(function(a,b){return b.value-a.value;});
-    var g2=ekBars(costs.map(function(r){return {label:r.label,value:r.value,color:'#2C7BB6'};}),{padL:150});
+    var g2=ekDonut(costs,'náklady spolu');
     var inc=c.incLines.filter(function(l){return l.bez>0;}).map(function(l){return {label:l.label,value:l.bez};}).sort(function(a,b){return b.value-a.value;});
-    var g3=ekBars(inc.map(function(r){return {label:r.label,value:r.value,color:'#3C9A6A'};}),{padL:150});
+    var g3=ekDonut(inc,'príjmy spolu');
     // My vs konkurencia €/m²: naša cena zvýraznená + priemer konkurencie ako čiara
     var comp=(p.competitors||[]).filter(function(x){return ekNum(x.eurm2)>0;})
       .map(function(x){return {label:(x.project||'—')+(x.type?' · '+String(x.type).trim():''), value:ekNum(x.eurm2)};})
@@ -2801,11 +3085,7 @@
     var g4=null;
     if(comp.length || our>0){
       var avg=comp.length? comp.reduce(function(a,x){return a+x.value;},0)/comp.length : 0;
-      var barsC=(our>0?[{label:'▶ MY (naša cena)', value:our, color:'#1964AA'}]:[])
-        .concat(comp.map(function(r){return {label:r.label, value:r.value, color:'#9aa9b8'};}));
-      g4=ekBars(barsC, {fmt:eurm2, padL:170, padR:70,
-        max:Math.max.apply(null, barsC.map(function(x){return x.value;}).concat(avg)),
-        ref:avg>0?avg:null, refLabel:'priemer konk. '+eurm2(avg)+'/m²'});
+      g4=ekBenchmark(comp,our);
     }
     var verdict='';
     if(our>0 && comp.length){
@@ -2814,17 +3094,24 @@
       verdict='<div style="font-size:11.5px;margin-top:6px;color:'+(diff<=0?'#1a7f47':'#b8860b')+'">Naša cena je <b>'+(diff<=0?'nižšia':'vyššia')+' o '+Math.abs(diff).toFixed(0)+' %</b> než priemer konkurencie.</div>';
     }
     return ekHero(c)+
-      '<div style="display:flex;flex-wrap:wrap;gap:12px">'+
+      '<div class="ek-chart-grid">'+
       ekChartBox('Ako vzniká zisk','Príjmy − Náklady = Zisk (bez DPH)', ekWaterfall(c.prijmyBez,c.nakladyBez,c.zisk))+
-      ekChartBox('My vs konkurencia €/m²','Modrý = naša cena · čiara = priemer konkurencie', (g4||'<p class="hint">Načítaj konkurenciu nižšie.</p>')+verdict)+
+      ekChartBox('My vs konkurencia €/m²','Naša pozícia v cenovom rozpätí trhu', (g4||'<p class="hint">Načítaj konkurenciu nižšie.</p>')+verdict)+
       ekChartBox('Rozklad nákladov','Podľa druhu, bez DPH', g2)+
       ekChartBox('Príjmy podľa zložky','Bez DPH', g3)+
       '</div>';
   }
   function ekChartsCard(p,c){
-    return '<div class="card"><h2>Grafické zhrnutie</h2>'+
+    return '<div class="card ek-charts"><h2>Grafické zhrnutie</h2>'+
       '<p class="hint">Hlavné čísla (zisk, marža, príjmy, náklady), ako zisk vzniká, porovnanie našej ceny s konkurenciou a rozklad. Prepočítava sa živo.</p>'+
       '<div id="ek_charts">'+ekChartsInner(p,c)+'</div></div>';
+  }
+  function ekMarketingHero(p,c){
+    var margin=c.marza==null?0:c.marza*100, ring=Math.max(0,Math.min(100,margin/30*100));
+    var comp=(p.competitors||[]).filter(function(x){return ekNum(x.eurm2)>0;}),our=(p.income&&p.income[0])?ekNum(p.income[0].r1):0,diff=null;
+    if(comp.length&&our>0){var avg=comp.reduce(function(a,x){return a+ekNum(x.eurm2);},0)/comp.length;diff=(our-avg)/avg*100;}
+    var advantage=diff==null?'Dátovo podložený model':(diff<=0?'o '+Math.abs(diff).toFixed(0)+' % výhodnejšia cena':'prémiová pozícia +'+Math.abs(diff).toFixed(0)+' %');
+    return '<div class="card marketing-hero"><div class="marketing-inner"><div><div class="marketing-eyebrow">Investičná príležitosť · Vi Group</div><h1>'+esc(p.name||'Developerský projekt')+'</h1><p class="marketing-claim">Projekt s potenciálom zisku <b>'+esc(fmtMoneyShort(c.zisk))+'</b> a maržou v atraktívnom investičnom pásme. Čísla, ktoré premieňajú víziu na presvedčivú príležitosť.</p></div><div class="marketing-ring" style="--margin:'+ring.toFixed(1)+'%"><div class="marketing-ring-value"><b>'+(c.marza==null?'—':fmt(c.marza*100,1)+' %')+'</b><span>Projektová marža</span></div></div></div><div class="marketing-proof"><div><b>'+esc(fmtMoneyShort(c.prijmyBez))+'</b><span>Potenciálne príjmy</span></div><div><b>'+esc(fmtMoneyShort(c.zisk))+'</b><span>Zisk bez DPH</span></div><div><b>'+esc(advantage)+'</b><span>Trhová pozícia</span></div></div></div>';
   }
 
   function renderEkonomika(){
@@ -2834,7 +3121,7 @@
     var opts=ids.map(function(k){ return '<option value="'+esc(k)+'"'+(k===EK.active?' selected':'')+'>'+esc(EK.projects[k].name||'(bez názvu)')+'</option>'; }).join('');
 
     // hlavička projektu
-    var head='<div class="card"><h2>Ekonomika projektu</h2>'+
+    var head='<div class="card ek-project"><h2>Ekonomika projektu</h2>'+
       '<p class="hint">Príjmy, náklady a analýza predaja — pre projektových manažérov. Model je znovupoužiteľný pre každý projekt. '+
       'Plochy sa dajú načítať z analýzy (záložky vľavo), sumy sú predvyplnené ako návrh a všetko sa dá ručne prepísať. Ukladá sa automaticky do prehliadača.</p>'+
       '<div class="filter no-print" style="align-items:center;gap:8px;flex-wrap:wrap">'+
@@ -2853,16 +3140,22 @@
         '<label>DPH %: '+ekInput('meta','dph','dph',ekR2((p.dph||0)*100),64)+'</label>'+
       '</div></div>';
 
-    // zhrnutie
-    var sum='<div class="card"><h2>Zhrnutie</h2><div class="kpis">'+
-      '<div class="kpi"><div class="v" id="ek_o_prijmyBez">'+fmt(c.prijmyBez)+'</div><div class="l">Príjmy bez DPH €</div></div>'+
-      '<div class="kpi"><div class="v" id="ek_o_nakladyBez">'+fmt(c.nakladyBez)+'</div><div class="l">Náklady bez DPH €</div></div>'+
-      '<div class="kpi"><div class="v" id="ek_o_zisk">'+fmt(c.zisk)+'</div><div class="l">Zisk bez DPH €</div></div>'+
-      '<div class="kpi"><div class="v" id="ek_o_marza">'+(c.marza==null?'—':fmt(c.marza*100,1)+' %')+'</div><div class="l">Marža</div></div>'+
-      '</div><div class="kpis" style="margin-top:10px">'+
-      '<div class="kpi"><div class="v" id="ek_o_prijmySdph">'+fmt(c.prijmySdph)+'</div><div class="l">Príjmy s DPH €</div></div>'+
-      '<div class="kpi"><div class="v" id="ek_o_nakladySdph">'+fmt(c.nakladySdph)+'</div><div class="l">Náklady s DPH €</div></div>'+
-      '<div class="kpi"><div class="v" id="ek_o_ziskSdph">'+fmt(c.ziskSdph)+'</div><div class="l">Zisk s DPH €</div></div>'+
+    function marginInsight(m){if(m==null)return['Bez dostatku údajov',''];var mp=m*100;if(mp>=15&&mp<=20)return['V odporúčanom pásme 15–20 %','good'];if(mp>20)return['Nad cieľovým pásmom','good'];return['Pod odporúčaným pásmom 15 %','warn'];}
+    function heroKpi(id,text,title,label,insight,cls,cardCls,extra){return '<div class="kpi '+(cardCls||'')+'"><div class="v" id="'+id+'" title="'+esc(title)+'">'+text+'</div><div class="l">'+esc(label)+'</div>'+(insight?'<div class="insight '+(cls||'')+'">'+esc(insight)+'</div>':'')+(extra||'')+'</div>';}
+    var mi=marginInsight(c.marza);
+    var marginWidth=c.marza==null?0:Math.max(0,Math.min(100,c.marza*100/30*100));
+    var marginMeter='<div class="margin-meter" aria-label="Marža v rozsahu 0 až 30 percent"><span style="width:'+marginWidth.toFixed(1)+'%"></span></div><div class="margin-scale"><span>0 %</span><span>cieľ 15–20 %</span><span>30 %</span></div>';
+    // zhrnutie — skrátené hodnoty pre prezentáciu, presné čísla ostávajú v tabuľkách
+    var sum='<div class="card ek-summary"><h2>Kľúčové ukazovatele</h2><div class="executive-hero">'+
+      heroKpi('ek_o_zisk',fmtMoneyShort(c.zisk),fmt(c.zisk)+' €','Zisk bez DPH','Príjmy mínus náklady',c.zisk>=0?'good':'warn','kpi-hero kpi-profit')+
+      heroKpi('ek_o_marza',c.marza==null?'—':fmt(c.marza*100,1)+' %',c.marza==null?'—':fmt(c.marza*100,2)+' %','Marža',mi[0],mi[1],'kpi-hero kpi-margin',marginMeter)+
+      '</div><div class="executive-support">'+
+      heroKpi('ek_o_prijmyBez',fmtMoneyShort(c.prijmyBez),fmt(c.prijmyBez)+' €','Príjmy bez DPH','Celkový výnos projektu','','kpi-support')+
+      heroKpi('ek_o_nakladyBez',fmtMoneyShort(c.nakladyBez),fmt(c.nakladyBez)+' €','Náklady bez DPH','Celkové projektové náklady','','kpi-support')+
+      '</div><div class="executive-secondary">'+
+      heroKpi('ek_o_prijmySdph',fmtMoneyShort(c.prijmySdph),fmt(c.prijmySdph)+' €','Príjmy s DPH','Kontrolná hodnota s DPH','','kpi-secondary')+
+      heroKpi('ek_o_nakladySdph',fmtMoneyShort(c.nakladySdph),fmt(c.nakladySdph)+' €','Náklady s DPH','Kontrolná hodnota s DPH','','kpi-secondary')+
+      heroKpi('ek_o_ziskSdph',fmtMoneyShort(c.ziskSdph),fmt(c.ziskSdph)+' €','Zisk s DPH','Výsledok vrátane DPH',c.ziskSdph>=0?'good':'warn','kpi-secondary')+
       '</div></div>';
 
     // príjmy
@@ -2876,7 +3169,7 @@
         ekO('ek_o_inc_'+r.id, fmt(l.bez))+ekO('ek_o_incd_'+r.id, fmt(l.sdph))+
         '<td class="no-print">'+ekDelBtn('income',r.id)+'</td></tr>';
     }).join('');
-    var income='<div class="card"><h2>Príjmy</h2>'+
+    var income='<div class="card ek-data-card ek-income"><h2>Príjmy</h2>'+
       '<p class="hint">Riadok = plocha × €/m² (+ prípadná druhá zložka, napr. balkón). Pri státiach je „plocha“ počet kusov.</p>'+
       '<table><thead><tr><th>Položka</th><th>Množstvo</th><th>€/j.</th><th>Zložka 2</th><th>€/j.</th><th>Bez DPH €</th><th>S DPH €</th><th class="no-print"></th></tr></thead>'+
       '<tbody>'+incRows+'</tbody>'+
@@ -2892,7 +3185,7 @@
         ekO('ek_o_st_'+r.id, fmt(l.bez))+
         '<td class="no-print">'+ekDelBtn('stavba',r.id)+'</td></tr>';
     }).join('');
-    var stavba='<div class="card"><h2>Stavebné náklady</h2>'+
+    var stavba='<div class="card ek-data-card ek-construction"><h2>Stavebné náklady</h2>'+
       '<p class="hint">Riadok = plocha × €/m². <b>Náš podiel financovania</b> (napr. 45 %) — zvyšok financuje banka; uplatní sa na „Ostatné“ a na náklady typu „náš podiel“. <b>Ostatné</b> = odhad × náš podiel.</p>'+
       '<table><thead><tr><th>Druh nákladu</th><th>Plocha</th><th>€/m²</th><th>Bez DPH €</th><th class="no-print"></th></tr></thead>'+
       '<tbody>'+stRows+'</tbody>'+
@@ -2916,7 +3209,7 @@
         ekO('ek_o_nk_'+r.id, fmt(l.bez))+ekO('ek_o_nkd_'+r.id, fmt(l.sdph))+
         '<td class="no-print">'+ekDelBtn('naklady',r.id)+'</td></tr>';
     }).join('');
-    var naklady='<div class="card"><h2>Kompletné náklady</h2>'+
+    var naklady='<div class="card ek-data-card ek-complete"><h2>Kompletné náklady</h2>'+
       '<p class="hint">Riadok je buď paušál (€), alebo % zo základu (príjmy / stavba+ostatné). Spolu = stavba+ostatné plus tieto riadky.</p>'+
       '<table><thead><tr><th>Druh nákladu</th><th>Sadzba / suma</th><th>Bez DPH €</th><th>S DPH €</th><th class="no-print"></th></tr></thead>'+
       '<tbody><tr><td><b>Stavba + ostatné</b></td><td></td>'+ekO('ek_o_stavbaOstatne2',fmt(c.stavbaOstatne))+'<td></td><td class="no-print"></td></tr>'+nkRows+'</tbody>'+
@@ -2959,7 +3252,7 @@
     }).join('');
     var kk=ekKonk(p);
     if(!kk.miesto && lastRozpiska && lastRozpiska.miesto) kk.miesto=lastRozpiska.miesto;   // lokalita z rozpisky ako návrh
-    var predaj='<div class="card"><h2>Analýza predaja (konkurencia)</h2>'+
+    var predaj='<div class="card ek-competitors"><h2>Analýza predaja (konkurencia)</h2>'+
       '<p class="hint">Porovnateľné projekty a ceny €/m². Zadaj <b>výmeru</b> a <b>€/m²</b> (alebo cenu bez DPH) — '+
       'zvyšné hodnoty (cena, €/m², <b>s DPH</b>) aj <b>súčty a priemery</b> sa dopočítajú automaticky.</p>'+
       '<div class="filter no-print" style="gap:8px;flex-wrap:wrap;align-items:center;margin:2px 0 12px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">'+
@@ -2988,7 +3281,7 @@
       '<h2 style="margin-top:16px;font-size:16px">Priemer €/m² podľa dispozície</h2>'+
       '<table style="max-width:340px"><thead><tr><th>Dispozícia</th><th>Priemer €/m²</th></tr></thead><tbody>'+avgRows+'</tbody></table></div>';
 
-    return head+sum+ekChartsCard(p,c)+income+stavba+naklady+ekMapCard(p)+ekKatCard(p)+predaj;
+    return ekMarketingHero(p,c)+head+sum+ekChartsCard(p,c)+income+stavba+naklady+ekMapCard(p)+ekKatCard(p)+predaj;
   }
 
   // aktualizuje len výstupné bunky (nezahodí fokus vstupu počas písania)
@@ -2998,13 +3291,13 @@
     c.incLines.forEach(function(l){ set('ek_o_inc_'+l.id,fmt(l.bez)); set('ek_o_incd_'+l.id,fmt(l.sdph)); });
     c.stLines.forEach(function(l){ set('ek_o_st_'+l.id,fmt(l.bez)); });
     c.nkLines.forEach(function(l){ set('ek_o_nk_'+l.id,fmt(l.bez)); set('ek_o_nkd_'+l.id,fmt(l.sdph)); });
-    set('ek_o_prijmyBez',fmt(c.prijmyBez)); set('ek_o_prijmyBez2',fmt(c.prijmyBez));
-    set('ek_o_prijmySdph',fmt(c.prijmySdph)); set('ek_o_prijmySdph2',fmt(c.prijmySdph));
+    set('ek_o_prijmyBez',fmtMoneyShort(c.prijmyBez)); set('ek_o_prijmyBez2',fmt(c.prijmyBez));
+    set('ek_o_prijmySdph',fmtMoneyShort(c.prijmySdph)); set('ek_o_prijmySdph2',fmt(c.prijmySdph));
     set('ek_o_stavba',fmt(c.stavba)); set('ek_o_ostatne',fmt(c.ostatne));
     set('ek_o_stavbaOstatne',fmt(c.stavbaOstatne)); set('ek_o_stavbaOstatne2',fmt(c.stavbaOstatne));
-    set('ek_o_nakladyBez',fmt(c.nakladyBez)); set('ek_o_nakladyBez2',fmt(c.nakladyBez));
-    set('ek_o_nakladySdph',fmt(c.nakladySdph)); set('ek_o_nakladySdph2',fmt(c.nakladySdph));
-    set('ek_o_zisk',fmt(c.zisk)); set('ek_o_ziskSdph',fmt(c.ziskSdph));
+    set('ek_o_nakladyBez',fmtMoneyShort(c.nakladyBez)); set('ek_o_nakladyBez2',fmt(c.nakladyBez));
+    set('ek_o_nakladySdph',fmtMoneyShort(c.nakladySdph)); set('ek_o_nakladySdph2',fmt(c.nakladySdph));
+    set('ek_o_zisk',fmtMoneyShort(c.zisk)); set('ek_o_ziskSdph',fmtMoneyShort(c.ziskSdph));
     set('ek_o_marza', c.marza==null?'—':fmt(c.marza*100,1)+' %');
     var avg=ekCompAverages(p); Object.keys(avg).forEach(function(t){ set('ek_o_avg_'+ekSlug(t), fmt(avg[t])); });
     (p.competitors||[]).forEach(function(cc,i){ set('ek_o_comp_sdph_'+i, fmt(ekCompSdph(p,cc))); });
@@ -3013,7 +3306,7 @@
   }
   // prekreslí celú záložku (pri zmene štruktúry — pridanie/zmazanie riadku, prepnutie projektu)
   function ekRerender(){
-    var sec=document.getElementById('sec-ekonomika'); if(sec){ sec.innerHTML=renderEkonomika(); }
+    var sec=document.getElementById('sec-ekonomika'); if(sec){ sec.innerHTML=renderEkonomika(); enhancePresentationUI(sec); }
   }
 
   function ekOnInput(e){

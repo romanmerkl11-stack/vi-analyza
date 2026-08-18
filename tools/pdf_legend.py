@@ -319,6 +319,16 @@ def legend_to_csv_page(page_text):
         return str(s).replace('"', '""')          # escape úvodzoviek v CSV poli
 
     def emit_room(code, name, area):
+        # OCR vracia hrubé boxy (celý riadok tabuľky = 1 box) → plocha „5,24 m²" ostane v NÁZVE.
+        # Ak miestnosť nemá plochu, ale v názve je „<číslo>,<číslo> m²", vytiahni ju a názov skráť.
+        if area is None and name:
+            m = re.search(r'(\d+[,\.]\d+)\s*m', name)
+            if m:
+                area = parse_area(m.group(1))
+                name = name[:m.start()].strip() or name
+        # OCR šum z rohovej pečiatky (projektant/investor…) = dlhý názov BEZ plochy → zahoď
+        if area is None and len(name.strip()) > 45:
+            return
         ext = is_exterior(name)
         av = _fnum(area)
         intc = '' if ext else av
