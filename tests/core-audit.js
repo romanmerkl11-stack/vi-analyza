@@ -29,8 +29,13 @@ const noisy = model.stats.roomTypeRows.filter((row) =>
 );
 
 assert.strictEqual(files.length, 10, 'Testovacia sada Topoľčianska musí obsahovať 10 CSV.');
-assert.ok(Math.abs(totals.spolocneTechnicke - 3521.04) < 0.001,
+assert.ok(Math.abs(totals.spolocneTechnicke - 2787.58) < 0.001,
   'CSV bez celkového medzisúčtu musí použiť priamy súčet spoločných plôch.');
+assert.ok(Math.abs(totals.predajnaInterior - 4139.28) < 0.001,
+  'Kancelárske a obchodné jednotky musia zostať v predajnej ploche.');
+assert.strictEqual(model.stats.roomTypeRows.filter((r) =>
+  r.name === 'MIESTNOSŤ' && r.cat !== 'NEBYTOVÉ PRIESTORY').length, 0,
+  'Generická miestnosť v predajnej nebytovej jednotke musí byť nebytový priestor.');
 assert.ok(totals.spolocneTechnicke >= 0, 'Spoločná plocha nesmie byť záporná.');
 assert.strictEqual(noisy.length, 0, 'Text pečiatky nesmie skončiť medzi typmi miestností.');
 

@@ -1056,6 +1056,8 @@
     { key: 'BYT', test: function (d) { return /^BYT\b/.test(d); } },
     { key: 'APARTMÁN', test: function (d) { return /^APARTMAN\b/.test(d); } },
     { key: 'OBCHODNÝ PRIESTOR', test: function (d) { return /^OBCHODNY PRIESTOR\b/.test(d); } },
+    // Kancelárske a všeobecné nebytové jednotky sú predajné nebytové priestory.
+    { key: 'OBCHODNÝ PRIESTOR', test: function (d) { return /^(KANCELARIA|NEBYTOVY PRIESTOR)\b/.test(d); } },
     { key: 'MEZONET', test: function (d) { return /^MEZONET\b/.test(d); } },
     { key: 'ATELIÉR', test: function (d) { return /^ATELIER\b/.test(d); } },
     { key: 'ŠTÚDIO', test: function (d) { return /^STUDIO\b/.test(d); } }
@@ -1089,7 +1091,7 @@
     var d0 = d;                                                        // s prípadným kódom (KANCELARIA 3 B-V)
 
     // KANCELÁRIA (kancelárie — Roman: pridať samostatný typ)
-    if (/\bKANCELARIA/.test(d0)) return { cat: 'KANCELÁRIA', living: false };
+    if (/\bKANCELARIA/.test(d0)) return { cat: 'NEBYTOVÉ PRIESTORY', living: false };
     // OBYTNÁ (obývacia izba/miestnosť, spálňa, detská izba, izba so šatníkom)
     if (/IZBA SO SATNIKOM/.test(d)) return { cat: 'OBYTNÁ', living: true };
     if (/OBYVACIA IZBA/.test(d) || /OBYVACIA MIESTNOST/.test(d) || /^OBYV MIESTNOST/.test(d)) return { cat: 'OBYTNÁ', living: true };
@@ -1263,6 +1265,7 @@
           interior: (interior != null ? interior : null),
           hasOwnArea: (interior != null),
           exterior: 0, izby: (residential ? 0 : null), rooms: 0, spaciKut: 0
+          , _roomInt: 0
         };
         floor.units.push(unit);
         openUnit = unit;
@@ -1272,6 +1275,11 @@
       // bežná miestnosť (beznázvové riadky preskočíme)
       if (!name) continue;
       var rc = roomCategory(name);
+      // Generický názov „MIESTNOSŤ“ v predajnej nebytovej jednotke nie je obytná izba.
+      // Plocha ostáva súčasťou jednotky a Ekonomiky, kategória je nebytová.
+      if (openUnit && openUnit.type === 'OBCHODNÝ PRIESTOR' && /^MIESTNOST$/.test(dname)) {
+        rc = { cat: 'NEBYTOVÉ PRIESTORY', living: false };
+      }
       // p3: komunikácie (chodba/predsieň/schodisko…) sa členia podľa POLOHY v legende —
       //   POD jednotkou = v byte (patrí do predajnej plochy) = KOMUNIKÁCIA,
       //   MIMO jednotky (spoločná sekcia, ktorá je v legende prvá) = SPOLOČNÉ KOMUNIKÁCIE.
@@ -1295,6 +1303,7 @@
 
       if (openUnit) {
         openUnit.rooms++;
+        if (interior != null) openUnit._roomInt += interior;
         if (rc.living && openUnit.izby != null) openUnit.izby++;
         if (rc.spaciKut) openUnit.spaciKut++;
         if (exterior != null) openUnit.exterior += exterior;
@@ -1417,6 +1426,7 @@
       var f;
       if (r.cat === 'KOMUNIKÁCIA' || r.cat === 'SPOLOČNÉ KOMUNIKÁCIE') f = 'Komunikácie';
       else if (r.cat === 'TECHNICKÉ / NEBYTOVÉ') f = 'Technické';
+      else if (r.cat === 'NEBYTOVÉ PRIESTORY') f = 'Obchod a služby';
       else if (r.cat === 'KANCELÁRIA') f = 'Kancelárie';
       else f = 'Ostatné';
       entries.push({ area: r.interior || 0, level: r.floorLevel, func: f, so: r.block || '—' });
@@ -1695,7 +1705,7 @@
   var CAT_LEARN_KEY='vi_cat_overrides_v1';
   var catOverrides = (function(){ try{ return JSON.parse(localStorage.getItem(CAT_LEARN_KEY)||'{}')||{}; }catch(e){ return {}; } })();
   try{ Core.setCategoryOverrides(catOverrides); }catch(e){}   // aplikuj naučené hneď na štarte
-  var CATS = ['OBYTNÁ','KUCHYŇA','HYGIENA','KOMUNIKÁCIA','SPOLOČNÉ KOMUNIKÁCIE','EXTERIÉR','SKLAD','GARÁŽ / PARKOVANIE','KANCELÁRIA','TECHNICKÉ / NEBYTOVÉ','VEREJNÉ','SPACÍ KÚT','INÉ (NA OVERENIE)'];
+  var CATS = ['OBYTNÁ','KUCHYŇA','HYGIENA','KOMUNIKÁCIA','SPOLOČNÉ KOMUNIKÁCIE','EXTERIÉR','SKLAD','GARÁŽ / PARKOVANIE','NEBYTOVÉ PRIESTORY','TECHNICKÉ / NEBYTOVÉ','VEREJNÉ','SPACÍ KÚT','INÉ (NA OVERENIE)'];
   function catSelect(name,cur){
     var opts=CATS.map(function(c){return '<option'+(c===cur?' selected':'')+'>'+esc(c)+'</option>';}).join('');
     if(CATS.indexOf(cur)<0) opts='<option selected>'+esc(cur)+'</option>'+opts;
