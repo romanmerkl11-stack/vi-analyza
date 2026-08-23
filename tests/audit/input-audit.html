@@ -1,0 +1,252 @@
+<title>Audit čítania vstupov</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ground:#eaeef3; --card:#ffffff; --card2:#f5f7fa; --ink:#141b26; --muted:#5f6b7d;
+    --hair:#d7dde6; --accent:#2f6bff; --accent-soft:#e6edff;
+    --ok:#1f9d57; --ok-bg:#e4f5eb; --known:#b3760f; --known-bg:#fbeed5;
+    --pend:#4f6f9e; --pend-bg:#e7edf5; --err:#cf3f36; --err-bg:#fbe4e2;
+    --shadow:0 1px 2px rgba(20,27,38,.06),0 6px 18px rgba(20,27,38,.06);
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --ground:#0e1520; --card:#161f2c; --card2:#1b2635; --ink:#dbe3ee; --muted:#8695a9;
+    --hair:#26313f; --accent:#5b8bff; --accent-soft:#1c2b47;
+    --ok:#48c07e; --ok-bg:#132a1e; --known:#dda63f; --known-bg:#2c2413;
+    --pend:#7ea0cf; --pend-bg:#172233; --err:#e8695f; --err-bg:#2c1715;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.28);
+  }}
+  :root[data-theme="dark"]{
+    --ground:#0e1520; --card:#161f2c; --card2:#1b2635; --ink:#dbe3ee; --muted:#8695a9;
+    --hair:#26313f; --accent:#5b8bff; --accent-soft:#1c2b47;
+    --ok:#48c07e; --ok-bg:#132a1e; --known:#dda63f; --known-bg:#2c2413;
+    --pend:#7ea0cf; --pend-bg:#172233; --err:#e8695f; --err-bg:#2c1715;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.28);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,sans-serif;line-height:1.5;
+    -webkit-font-smoothing:antialiased;padding:clamp(16px,4vw,44px)}
+  .wrap{max-width:1080px;margin:0 auto}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+
+  header.top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;
+    flex-wrap:wrap;margin-bottom:28px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 8px}
+  h1{font-size:clamp(26px,4.4vw,38px);line-height:1.08;margin:0;font-weight:700;
+    letter-spacing:-.02em;text-wrap:balance}
+  .sub{color:var(--muted);margin:10px 0 0;max-width:60ch;font-size:15px}
+  .meta{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--muted);
+    text-align:right;line-height:1.7;white-space:nowrap}
+  .toggle{margin-top:8px;background:var(--card);border:1px solid var(--hair);color:var(--muted);
+    font-family:"IBM Plex Mono",monospace;font-size:12px;padding:5px 10px;border-radius:8px;
+    cursor:pointer}
+  .toggle:hover{color:var(--ink);border-color:var(--accent)}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;
+    margin-bottom:14px}
+  .stat{background:var(--card);border:1px solid var(--hair);border-radius:14px;
+    padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--sc,var(--accent))}
+  .stat .n{font-family:"IBM Plex Mono",monospace;font-size:34px;font-weight:600;
+    letter-spacing:-.02em;line-height:1}
+  .stat .l{color:var(--muted);font-size:13px;margin-top:6px}
+  .stat.ok{--sc:var(--ok)} .stat.known{--sc:var(--known)} .stat.pend{--sc:var(--pend)}
+  .stat.tot{--sc:var(--accent)}
+
+  .note{background:var(--accent-soft);border:1px solid var(--hair);border-radius:12px;
+    padding:13px 16px;font-size:13.5px;color:var(--ink);margin-bottom:30px;display:flex;gap:10px}
+  .note b{font-weight:600}
+
+  section{background:var(--card);border:1px solid var(--hair);border-radius:16px;
+    box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden}
+  .sec-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+    padding:16px 20px;border-bottom:1px solid var(--hair);background:var(--card2)}
+  .sec-head h2{font-size:16px;margin:0;font-weight:600;letter-spacing:-.01em}
+  .sec-head .cnt{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted)}
+  .sec-head .path{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:11.5px;
+    color:var(--muted);background:var(--ground);border:1px solid var(--hair);
+    padding:2px 8px;border-radius:6px}
+  .rows{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
+  td{padding:10px 14px;border-top:1px solid var(--hair);vertical-align:top}
+  tr:first-child td{border-top:none}
+  td.st{width:1%;white-space:nowrap}
+  td.ds{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink);white-space:nowrap}
+  td.dt{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:12px}
+  td.gt{color:var(--muted);font-size:12.5px;white-space:nowrap}
+  tr.pending td{opacity:.72}
+
+  .pill{display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono",monospace;
+    font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;
+    padding:3px 9px;border-radius:100px;border:1px solid transparent}
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .pill.ok{color:var(--ok);background:var(--ok-bg)}
+  .pill.known{color:var(--known);background:var(--known-bg)}
+  .pill.pending{color:var(--pend);background:var(--pend-bg)}
+  .pill.error{color:var(--err);background:var(--err-bg)}
+  .num{color:var(--ink)}
+
+  footer{color:var(--muted);font-size:12.5px;margin-top:26px;line-height:1.7;
+    font-family:"IBM Plex Mono",monospace}
+  footer .k{color:var(--ink)}
+  @media (max-width:560px){.meta{text-align:left}header.top{gap:12px}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow">Vi Group · Analýza budovy</p>
+      <h1>Audit čítania vstupov</h1>
+      <p class="sub">Jednorazový snímok spoľahlivosti čítania naprieč všetkými typmi podkladov,
+        ktoré aplikácia prijíma — od CSV po naskenované výkresy. Presnosť sa meria voči
+        vytlačenej „PODLAHOVEJ PLOCHE CELKOVEJ" a oficiálnym legendám.</p>
+    </div>
+    <div class="meta" id="meta">
+      <div>2026-08-21</div>
+      <div id="plat">platform: —</div>
+      <button class="toggle" id="tg" type="button">◐ téma</button>
+    </div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="note">
+    <span>ⓘ</span>
+    <span><b>Ako čítať.</b> <b class="mono">ok</b> = číta správne (diff &lt; 0,10&nbsp;m² voči
+      vytlačenej CELKOVEJ, alebo 0 chýb voči ground&nbsp;truth). <b class="mono">známe</b> =
+      rozdiel je doložená chyba <i>výkresu</i>, nie parsera (KONTROLA_vykresov.md).
+      <b class="mono">windows-pending</b> = OCR cesta (sken/obrázok) bez ground&nbsp;truth — číta sa na
+      grafik-pc (RapidOCR). <b>OCR overené na grafik-PC:</b> sken <span class="mono">cely_C_1NP</span>
+      → 493,07 = vektor a Šuty <span class="mono">A·1NP</span> → 160,80 = vytlačená ÚŽITKOVÁ,
+      obe na cent.</span>
+  </div>
+
+  <div id="sections"></div>
+
+  <footer>
+    <div>Generované z <span class="k">tests/full-input-audit.py</span> →
+      <span class="k">tests/audit/report.json</span></div>
+    <div>Čítače: <span class="k">pdf_legend</span> · <span class="k">krivky_na_text</span> ·
+      <span class="k">vi_flatmix</span> · <span class="k">vi_extract</span> ·
+      <span class="k">ocr_win (RapidOCR)</span></div>
+  </footer>
+</div>
+
+<script>
+const REPORT = {"platform":"darwin + grafik-PC (OCR)","summary":{"ok":54,"known":3,"windows-pending":10},"rows":[
+{"typ":"CSV","dataset":"Topolcianska (10 CSV)","cesta":"buildModel","status":"ok","detail":"podlaží=10 miest=626 jedn=83 neznáme=0 dup=0","gt":"sum-konzistencia + 0 neznámych typov"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_A_02_1NP-1050x500.pdf","cesta":"vektor","status":"ok","detail":"miest=30 jedn=0 interiér=2064.13 CELKOVÁ=2064.12 diff=+0.01","gt":"CELKOVÁ diff +0.01"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_A_03_2NP-1200X680.pdf","cesta":"vektor","status":"ok","detail":"miest=114 jedn=16 interiér=911.29 CELKOVÁ=911.30 diff=-0.01","gt":"CELKOVÁ diff -0.01"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_A_04_3+5NP-A1.pdf","cesta":"vektor","status":"ok","detail":"miest=47 jedn=7 interiér=403.96 CELKOVÁ=403.95 diff=+0.01","gt":"CELKOVÁ diff +0.01"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_A_04_3+5NP-A2.pdf","cesta":"vektor","status":"ok","detail":"miest=58 jedn=9 interiér=506.82 CELKOVÁ=506.82 diff=+0.00","gt":"CELKOVÁ diff +0.00"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_A_05_4+6NP-A1.pdf","cesta":"vektor","status":"ok","detail":"miest=47 jedn=7 interiér=403.96 CELKOVÁ=403.95 diff=+0.01","gt":"CELKOVÁ diff +0.01"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_A_05_4+6NP-A2.pdf","cesta":"vektor","status":"ok","detail":"miest=58 jedn=9 interiér=506.82 CELKOVÁ=506.82 diff=+0.00","gt":"CELKOVÁ diff +0.00"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_A_06_7NP-A1.pdf","cesta":"vektor","status":"ok","detail":"miest=37 jedn=3 interiér=359.35 CELKOVÁ=359.35 diff=+0.00","gt":"CELKOVÁ diff +0.00"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_A_06_7NP-A2.pdf","cesta":"vektor","status":"ok","detail":"miest=48 jedn=4 interiér=451.38 CELKOVÁ=451.37 diff=+0.01","gt":"CELKOVÁ diff +0.01"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_B_02_1NP-1060x680.pdf","cesta":"vektor","status":"ok","detail":"miest=96 jedn=0 interiér=2780.23 CELKOVÁ=2780.24 diff=-0.01","gt":"CELKOVÁ diff -0.01"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_B_03_2NP-1200X680.pdf","cesta":"vektor","status":"ok","detail":"miest=185 jedn=25 interiér=1509.61 CELKOVÁ=1509.58 diff=+0.03","gt":"CELKOVÁ diff +0.03"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_B_04_3+5+7NP-B1.pdf","cesta":"vektor","status":"ok","detail":"miest=58 jedn=9 interiér=506.94 CELKOVÁ=506.96 diff=-0.02","gt":"CELKOVÁ diff -0.02"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_B_04_3+5+7NP-B2.pdf","cesta":"vektor","status":"ok","detail":"miest=51 jedn=6 interiér=436.80 CELKOVÁ=436.81 diff=-0.01","gt":"CELKOVÁ diff -0.01 · fantóm-fix"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_B_04_3+5+7NP-B3.pdf","cesta":"vektor","status":"ok","detail":"miest=68 jedn=10 interiér=565.67 CELKOVÁ=565.63 diff=+0.04","gt":"CELKOVÁ diff +0.04"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_B_05_4+6NP-B1.pdf","cesta":"vektor","status":"ok","detail":"miest=58 jedn=9 interiér=506.82 CELKOVÁ=506.83 diff=-0.01","gt":"CELKOVÁ diff -0.01"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_B_05_4+6NP-B2.pdf","cesta":"vektor","status":"ok","detail":"miest=50 jedn=6 interiér=436.80 CELKOVÁ=436.81 diff=-0.01","gt":"CELKOVÁ diff -0.01 · fantóm-fix"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_B_05_4+6NP-B3.pdf","cesta":"vektor","status":"ok","detail":"miest=68 jedn=10 interiér=565.67 CELKOVÁ=565.63 diff=+0.04","gt":"CELKOVÁ diff +0.04"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_B_06_8NP-B1.pdf","cesta":"vektor","status":"ok","detail":"miest=48 jedn=4 interiér=451.04 CELKOVÁ=451.05 diff=-0.01","gt":"CELKOVÁ diff -0.01"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_B_06_8NP-B2.pdf","cesta":"vektor","status":"ok","detail":"miest=42 jedn=5 interiér=383.35 CELKOVÁ=383.33 diff=+0.02","gt":"CELKOVÁ diff +0.02 · fantóm-fix"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_B_06_8NP-B3.pdf","cesta":"vektor","status":"ok","detail":"miest=54 jedn=7 interiér=490.18 CELKOVÁ=490.17 diff=+0.01","gt":"CELKOVÁ diff +0.01"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_C_02_1NP-C.pdf","cesta":"vektor","status":"ok","detail":"miest=11 jedn=0 interiér=493.07 CELKOVÁ=493.07 diff=+0.00","gt":"CELKOVÁ diff +0.00"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_C_03_2NP-C.pdf","cesta":"vektor","status":"ok","detail":"miest=62 jedn=9 interiér=506.44 CELKOVÁ=506.42 diff=+0.02","gt":"CELKOVÁ diff +0.02"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_C_04_3+5NP-C.pdf","cesta":"vektor","status":"known","detail":"miest=58 jedn=9 interiér=506.32 CELKOVÁ=505.73 diff=+0.59","gt":"diff +0.59 (doložená chyba výkresu)"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_C_05_4+6NP-C.pdf","cesta":"vektor","status":"ok","detail":"miest=58 jedn=9 interiér=505.69 CELKOVÁ=505.64 diff=+0.05","gt":"CELKOVÁ diff +0.05"},
+{"typ":"PDF vektor/krivky (RNDZ)","dataset":"RNDZ_C_06_7NP-C.pdf","cesta":"vektor","status":"ok","detail":"miest=48 jedn=4 interiér=451.86 CELKOVÁ=451.85 diff=+0.01","gt":"CELKOVÁ diff +0.01"},
+{"typ":"PDF vektor/krivky (IC1)","dataset":"01_1pp-podorys 1pp legenda.pdf","cesta":"ocr","status":"ok","detail":"miest=16 jedn=0 interiér=56.34 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor/krivky (IC1)","dataset":"03_2np-podorys 2np legenda.pdf","cesta":"krivky","status":"ok","detail":"miest=233 jedn=28 interiér=1716.95 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor/krivky (IC1)","dataset":"04_3np-podorys 3np legenda.pdf","cesta":"krivky","status":"ok","detail":"miest=233 jedn=28 interiér=1746.45 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor/krivky (IC1)","dataset":"05_4np-podorys 4np legenda.pdf","cesta":"vektor","status":"ok","detail":"miest=88 jedn=13 interiér=598.33 CELKOVÁ=598.42 diff=-0.09","gt":"GT 73/73 OK · Fix loggia+blok"},
+{"typ":"PDF vektor/krivky (IC1)","dataset":"06_5np-podorys 5np legenda.pdf","cesta":"krivky","status":"ok","detail":"miest=88 jedn=13 interiér=610.77 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor/krivky (IC1)","dataset":"07_6np-podorys 6np legenda.pdf","cesta":"krivky","status":"ok","detail":"miest=88 jedn=13 interiér=623.24 (vytlačená 623.28)","gt":"krivky Δ0.04 vs výkres"},
+{"typ":"PDF vektor/krivky (IC1)","dataset":"08_7np-podorys 7np legenda.pdf","cesta":"krivky","status":"ok","detail":"miest=88 jedn=13 interiér=635.83 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor/krivky (IC1)","dataset":"09_8np-podorys 8np legenda.pdf","cesta":"krivky","status":"ok","detail":"miest=88 jedn=13 interiér=646.21 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor/krivky (IC1)","dataset":"10_9np-podorys 9np legenda.pdf","cesta":"krivky","status":"ok","detail":"miest=92 jedn=13 interiér=591.74 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor/krivky (IC1)","dataset":"11_10np-podorys 10np legenda.pdf","cesta":"vektor","status":"ok","detail":"miest=29 jedn=7 interiér=243.84 CELKOVÁ=243.86 diff=-0.02","gt":"CELKOVÁ diff -0.02"},
+{"typ":"PDF popisky (IC2)","dataset":"10_IC2_2NP_eventove saly-A3.pdf","cesta":"flatmix","status":"ok","detail":"26 jednotiek · 2056.28 m² (apartmánové popisky)","gt":"interná konzistencia"},
+{"typ":"PDF popisky (IC2)","dataset":"11_IC2_3NP_wellness-A3.pdf","cesta":"flatmix","status":"ok","detail":"26 jednotiek · 2056.28 m²","gt":"interná konzistencia"},
+{"typ":"PDF popisky (IC2)","dataset":"12_IC2_4+5NP-A3.pdf","cesta":"flatmix","status":"ok","detail":"76 jednotiek · 3450.28 m²","gt":"interná konzistencia"},
+{"typ":"PDF popisky (IC2)","dataset":"13_IC2_6NP-A3.pdf","cesta":"flatmix","status":"ok","detail":"49 jednotiek · 2632.83 m²","gt":"interná konzistencia"},
+{"typ":"PDF popisky (IC2)","dataset":"14_IC2_7NP-A3.pdf","cesta":"flatmix","status":"ok","detail":"16 jednotiek · 1132.85 m²","gt":"interná konzistencia"},
+{"typ":"PDF popisky (IC2)","dataset":"15_IC2_8NP-A3.pdf","cesta":"flatmix","status":"ok","detail":"10 jednotiek · 861.94 m²","gt":"interná konzistencia"},
+{"typ":"PDF vektor (Krasnany)","dataset":"BD Krasnany RP_1.01 - 1.PP.pdf","cesta":"vektor","status":"ok","detail":"miest=13 jedn=0 interiér=777.23 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor (Krasnany)","dataset":"BD Krasnany RP_1.02 - 1.NP.pdf","cesta":"vektor","status":"ok","detail":"miest=95 jedn=20 interiér=691.56 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor (Krasnany)","dataset":"BD Krasnany RP_1.03 - 2.NP.pdf","cesta":"vektor","status":"ok","detail":"miest=96 jedn=11 interiér=672.38 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor (Krasnany)","dataset":"BD Krasnany RP_1.04 - 3.NP.pdf","cesta":"vektor","status":"ok","detail":"miest=88 jedn=11 interiér=672.34 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor (Krasnany)","dataset":"BD Krasnany RP_1.05 - 4.NP.pdf","cesta":"vektor","status":"ok","detail":"miest=81 jedn=10 interiér=666.54 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor (Krasnany)","dataset":"BD Krasnany RP_1.06 - 5.NP.pdf","cesta":"vektor","status":"ok","detail":"miest=81 jedn=10 interiér=666.30 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF vektor (Krasnany)","dataset":"BD Krasnany RP_1.07 - 6.NP.pdf","cesta":"vektor","status":"ok","detail":"miest=81 jedn=10 interiér=666.29 CELKOVÁ=666.29 diff=+0.00","gt":"CELKOVÁ diff +0.00"},
+{"typ":"PDF vektor (Krasnany)","dataset":"BD Krasnany RP_1.08 - 7.NP.pdf","cesta":"vektor","status":"ok","detail":"miest=81 jedn=10 interiér=666.25 CELKOVÁ=666.25 diff=+0.00","gt":"CELKOVÁ diff +0.00"},
+{"typ":"PDF vektor (Krasnany)","dataset":"BD Krasnany RP_1.09 - 8.NP.pdf","cesta":"vektor","status":"ok","detail":"miest=52 jedn=5 interiér=380.49 (bez CELKOVEJ)","gt":"—"},
+{"typ":"PDF sken (Šuty)","dataset":"A · Podorys 1NP.pdf","cesta":"ocr","status":"ok","detail":"sken → RapidOCR · interiér 160.80 = vytlačená ÚŽITKOVÁ (1 názov garbled)","gt":"Windows overené · na cent"},
+{"typ":"PDF sken (Šuty)","dataset":"A · Podorys 2NP.pdf","cesta":"ocr","status":"windows-pending","detail":"sken bez textovej vrstvy → RapidOCR","gt":"vytlačená ÚŽITKOVÁ"},
+{"typ":"PDF sken (Šuty)","dataset":"A · Podorys 3NP.pdf","cesta":"ocr","status":"windows-pending","detail":"sken bez textovej vrstvy → RapidOCR","gt":"vytlačená ÚŽITKOVÁ"},
+{"typ":"PDF sken (Šuty)","dataset":"B · Podorys 1NP.pdf","cesta":"ocr","status":"windows-pending","detail":"sken bez textovej vrstvy → RapidOCR","gt":"vytlačená ÚŽITKOVÁ"},
+{"typ":"PDF sken (Šuty)","dataset":"B · Podorys 2NP.pdf","cesta":"ocr","status":"windows-pending","detail":"sken bez textovej vrstvy → RapidOCR","gt":"vytlačená ÚŽITKOVÁ"},
+{"typ":"PDF sken (Šuty)","dataset":"B · Podorys 3NP.pdf","cesta":"ocr","status":"windows-pending","detail":"sken bez textovej vrstvy → RapidOCR","gt":"vytlačená ÚŽITKOVÁ"},
+{"typ":"PDF sken (Šuty)","dataset":"C · Podorys 1NP.pdf","cesta":"ocr","status":"windows-pending","detail":"sken bez textovej vrstvy → RapidOCR","gt":"vytlačená ÚŽITKOVÁ"},
+{"typ":"Obrázok (OCR)","dataset":"cely_A1_4+6NP.png","cesta":"ocr","status":"windows-pending","detail":"celý hárok → RapidOCR (dláždenie)","gt":"bez GT"},
+{"typ":"Obrázok (OCR)","dataset":"cely_C_1NP.png","cesta":"ocr","status":"ok","detail":"celý sken → RapidOCR · interiér 493.07 = vektor referencia (493.07)","gt":"Windows overené · na cent"},
+{"typ":"Obrázok (OCR)","dataset":"cely_C_2NP.png","cesta":"ocr","status":"windows-pending","detail":"celý hárok → RapidOCR (dláždenie)","gt":"bez GT"},
+{"typ":"Obrázok (OCR)","dataset":"vyrez_A1_4+6NP.png","cesta":"ocr","status":"windows-pending","detail":"výrez legendy → RapidOCR","gt":"bez GT"},
+{"typ":"Obrázok (OCR)","dataset":"vyrez_C_2NP.png","cesta":"ocr","status":"windows-pending","detail":"výrez legendy → RapidOCR","gt":"bez GT"},
+{"typ":"ZIP","dataset":"Claude-handoff-2026-08-18.zip","cesta":"unpack","status":"ok","detail":"21 súborov rozbalených","gt":"obsah čitateľný"},
+{"typ":"ZIP","dataset":"EXPEDICIA 0.9_20-07-10.zip","cesta":"unpack","status":"ok","detail":"55 súborov (53 PDF) rozbalených","gt":"obsah čitateľný"},
+{"typ":"JSON (krivky výstup)","dataset":"IC1 6NP → JSON","cesta":"FlatmixCore","status":"ok","detail":"368 položiek · štruktúra {s,x,y,w,h,rot}","gt":"štruktúra položiek"},
+{"typ":"DXF / DWG (oracle)","dataset":"1NP SAR.dxf","cesta":"vi_extract","status":"known","detail":"SEDÍ 216/219 (3 NESEDÍ = doložené chyby výkresu)","gt":"1np-1.csv"},
+{"typ":"DXF / DWG (oracle)","dataset":"3NP SAR.dxf","cesta":"vi_extract","status":"known","detail":"SEDÍ 202/207 (5 NESEDÍ = doložené chyby výkresu)","gt":"3np-1.csv"}
+]};
+
+const ST = {
+  ok:{cls:"ok",label:"ok"}, known:{cls:"known",label:"známe"},
+  "windows-pending":{cls:"pending",label:"windows"}, error:{cls:"error",label:"chyba"},
+  chyba:{cls:"error",label:"chyba"}, diff:{cls:"error",label:"diff"}
+};
+const esc = s => String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function pill(st){const m=ST[st]||{cls:"error",label:st};return `<span class="pill ${m.cls}">${m.label}</span>`;}
+
+// súhrn
+document.getElementById("plat").textContent = "platform: "+REPORT.platform;
+const s = REPORT.summary, tot = REPORT.rows.length;
+document.getElementById("stats").innerHTML = [
+  ["tot",tot,"vstupov testovaných"],
+  ["ok",s.ok||0,"číta správne"],
+  ["known",s.known||0,"známe chyby výkresu"],
+  ["pend",s["windows-pending"]||0,"OCR · čaká na Windows"]
+].map(([c,n,l])=>`<div class="stat ${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+
+// sekcie podľa typu (zachovaj poradie výskytu)
+const order=[], groups={};
+for(const r of REPORT.rows){ if(!(r.typ in groups)){groups[r.typ]=[];order.push(r.typ);} groups[r.typ].push(r); }
+document.getElementById("sections").innerHTML = order.map(typ=>{
+  const rows=groups[typ];
+  const paths=[...new Set(rows.map(r=>r.cesta))].join(" · ");
+  const body=rows.map(r=>`<tr class="${r.status==='windows-pending'?'pending':''}">
+    <td class="st">${pill(r.status)}</td>
+    <td class="ds">${esc(r.dataset)}</td>
+    <td class="dt">${esc(r.detail)}</td>
+    <td class="gt">${esc(r.gt||'—')}</td></tr>`).join("");
+  return `<section><div class="sec-head">
+      <h2>${esc(typ)}</h2><span class="cnt">${rows.length} ${rows.length===1?'vstup':'vstupov'}</span>
+      <span class="path mono">${esc(paths)}</span></div>
+      <div class="rows"><table><tbody>${body}</tbody></table></div></section>`;
+}).join("");
+
+// téma toggle
+const root=document.documentElement, tg=document.getElementById("tg");
+tg.addEventListener("click",()=>{
+  const cur=root.getAttribute("data-theme");
+  const dark=cur? cur==="dark" : matchMedia("(prefers-color-scheme:dark)").matches;
+  root.setAttribute("data-theme", dark?"light":"dark");
+});
+</script>

@@ -60,6 +60,7 @@ const result = {
   },
   directUseful: model.bilancie.uzitkova.total,
   unknownRoomTypes: model.checks.unknown,
+  discardedNames: (model.discarded || []).map((d) => ({ name: d.name, reason: d.reason, count: d.count, manual: !!d.manual })),
   zeroRoomUnits: model.checks.zeroIzby,
   badFormats: model.checks.badFormat,
   badFloorChecks: badFloorChecks.map((x) => ({ floor: x.label, calculated: x.sumGroups, csv: x.csv })),

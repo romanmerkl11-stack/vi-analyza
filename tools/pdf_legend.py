@@ -53,7 +53,9 @@ def parse_area(s):
 #  - písmenom-začínajúci (A.01, B1.3.A, SO.01, K.1.01) — pôvodné správanie + pomlčka v tail,
 #  - číslom-začínajúci LEN ak po prvej bodke nasleduje PÍSMENO jednotky (6.A.01, 6.A-V, 6.A).
 #    Tým sa vylúčia čísla výkresov z rozpisky (1.04a → po bodke číslica) aj podlažie (6.NP guard).
-CODE_RE = re.compile(r'^(?!\d+\.(?:NP|PP)$)(?:[A-Za-zŠš][\wŠš.\-]*\.[\wŠš\-]+|\d+\.[A-Za-zŠš][\wŠš.\-]*)$', re.I)
+#  - spoločný blok pred prvou jednotkou (IC: 4B.00 VÝŤAHOVÁ ŠACHTA, 4B.01 SCHODISKO...) má kód
+#    "blok+číslo" = číslice+písmená.bodka.číslo (4B.00) — inak by sa celý blok zahodil.
+CODE_RE = re.compile(r'^(?!\d+\.(?:NP|PP)$)(?:[A-Za-zŠš][\wŠš.\-]*\.[\wŠš\-]+|\d+\.[A-Za-zŠš][\wŠš.\-]*|\d+[A-Za-zŠš]+\.[\wŠš\-]+)$', re.I)
 # plocha: "341,41", "90.08", "3 028,59", celé číslo, alebo pomlčka (bez plochy)
 NUM_RE = re.compile(r'^[-–]$|^\d[\d\s ]*[,\.]\d+$|^\d[\d\s ]*$')
 
@@ -71,7 +73,9 @@ def is_header(tok):
     d = deburr(tok)
     return any(k in d for k in HEADER_KEYS)
 
-EXT_KEYS = ['BALKON', 'LODZIA', 'TERASA', 'PREDZAHRADKA']
+# LOGGIA (tal. písanie) a ZÁHRADA sú exteriér — parita s appkou (roomCategory). Bez nich
+# končila plocha loggie v INTERIÉRI (napr. IC 4NP: 14× loggia zle v interiéri).
+EXT_KEYS = ['BALKON', 'LODZIA', 'LOGGIA', 'TERASA', 'PREDZAHRADKA', 'ZAHRAD']
 TECH_KEYS = ['TECHNICK', 'VYMENNIK', 'NEBYTOVY', 'STROJOVN', 'ROZVODN', 'KOTOLN',
              'TRAFO', 'ELEKTRO', 'UPRATOVAC', 'ODPAD']
 GARAZ_KEYS = ['GARAZ', 'PARKOVISKO', 'PARKOVANIE', 'RAMPA', 'STATIE', 'STANIE']
@@ -80,6 +84,27 @@ SKLAD_KEYS = ['SKLAD', 'KOBKA', 'PIVNICA']
 def is_exterior(name):
     d = deburr(name)
     return any(k in d for k in EXT_KEYS)
+
+# Do názvu miestnosti niekedy pretečie text zo susednej schémy / pečiatky (Krasnany):
+#  - VÝKAZ OKIEN/DVERÍ: „W1B W1B W1A ZK4a ZK6 …" (séria element-kódov),
+#  - BLOKOVÁ SCHÉMA: „A B C D E F G H I J K L M" (séria jednopísmenových blokov),
+#  - TEXT PEČIATKY: „… DÁTUM: HLAVNÝ PROJEKTANT: MIERKA: …".
+# Reálny názov miestnosti nič z toho nie je → zahoď.
+_STAMP_KW = ['DATUM', 'PROJEKTANT', 'VYPRACOVAL', 'MIERKA', 'STUPEN', 'FORMAT', 'REVIZIA',
+             'INVESTOR', 'NAZOV STAVBY', 'NAZOV VYKRESU', 'CISLO VYKRESU', 'SPRACOVAL', 'ZODPOVED']
+def _is_schedule_noise(name):
+    if any(k in deburr(name) for k in _STAMP_KW):        # text pečiatky
+        return True
+    toks = name.split()
+    if len(toks) < 3:
+        return False
+    codes = sum(1 for t in toks if re.match(r'^[A-Za-zŠČšč]{1,3}\d', t))
+    if codes >= 3 and codes >= 0.5 * len(toks):          # výkaz okien/dverí
+        return True
+    singles = sum(1 for t in toks if len(t) <= 2)
+    if singles >= 4 and singles >= 0.7 * len(toks):      # bloková schéma A B C D …
+        return True
+    return False
 
 def classify(code, name):
     dn = deburr(name)
@@ -144,7 +169,7 @@ def parse_legend(page_text):
 
     for t in toks:
         du = deburr(t)
-        if du.startswith('PODLAHOVA PLOCHA'):
+        if du.startswith('PODLAHOVA PL'):   # „PLOCHA" aj skratka „PL." (Krasnany: PODLAHOVA PL. CELKOVA)
             flush_as_header(); pend_code, pend_name = None, []
             _pending_total[0] = 'CELKOVA' if 'CELKOVA' in du else 'SUB'
             continue
@@ -168,7 +193,12 @@ def parse_legend(page_text):
             continue
         if NUM_RE.match(t):
             if pend_code is not None:
-                rooms.append(_mk_room(pend_code, ' '.join(pend_name).strip(), parse_area(t)))
+                nm = ' '.join(pend_name).strip()
+                # kód + plocha, ale BEZ názvu = fantóm zo schémy/pečiatky za legendou
+                # (reálna miestnosť má vždy názov) — napr. RNDZ B2: „B2.3.C 60,00", „B.05 3,00"
+                # alebo názov = výkaz okien (Krasnany „W1B ZK4a …")
+                if nm and not _is_schedule_noise(nm):
+                    rooms.append(_mk_room(pend_code, nm, parse_area(t)))
                 pend_code, pend_name = None, []
             continue
         # názvový fragment
@@ -214,9 +244,10 @@ def extract_meta(text):
     d = deburr(re.sub(r'\s+', ' ', text or ''))     # jednoriadkovo, bez diakritiky
     meta = {'floorName': None, 'levels': [], 'block': None, 'so': None,
             'parcels': None, 'projekt': None, 'miesto': None, 'ku': None, 'datum': None}
-    # katastrálne územie z rozpisky: „k.ú. RAČA" → ku 'RACA' (na prednaplnenie katastra)
-    m = re.search(r'\bK\.?\s*U\.?\s+([A-Z0-9][A-Z0-9 \-]{1,35}?)'
-                  r'(?=\s{2,}|[,;]|\bBLOK\b|\bSO\b|\bMIERKA\b|\bDATUM\b|\bP\.?\s*C\b|\bPARC\b|$)', d)
+    # katastrálne územie z rozpisky: „k.ú. RAČA" (RNDZ) aj „katastrálne územie Trnávka" (IC)
+    # → ku 'RACA'/'TRNAVKA' (na prednaplnenie katastra + konkurencie)
+    m = re.search(r'\b(?:K\.?\s*U\.?|KATASTR\w*\s+UZEMIE)\s+([A-Z0-9][A-Z0-9 \-]{1,35}?)'
+                  r'(?=\s{2,}|[,;]|\bOBEC\b|\bBLOK\b|\bSO\b|\bMIERKA\b|\bDATUM\b|\bP\.?\s*C\b|\bPARC\b|$)', d)
     if m: meta['ku'] = re.sub(r'\s+', ' ', m.group(1)).strip()
     # miesto (obec) pred „k.ú.": „BRATISLAVA - RAČA, k.ú. …" → 'BRATISLAVA - RACA'
     m = re.search(r'\b([A-Z]{3,}(?:\s*-\s*[A-Z]{3,})?)\s*,?\s*K\.?\s*U\.?\s', d)
@@ -237,7 +268,8 @@ def extract_meta(text):
     if m: meta['so'] = m.group(1)
     m = re.search(r'\bBLOK\s+([A-Z0-9]{1,3})\s*[:.]', d)        # BLOK C:
     if m: meta['block'] = m.group(1)
-    m = re.search(r'\bP\.?\s*C\.?\s*([0-9][0-9/,\s]{4,})', d)   # p.č. 4757/4, ...
+    # parcely: „p.č. 4757/4" (RNDZ) aj „parcela č.15850/188" (IC) — deburr → P.C. / PARCELA C.
+    m = re.search(r'\b(?:P|PARCEL[AY]?)\.?\s*C\.?\s*([0-9][0-9/,\s]{4,})', d)
     if m: meta['parcels'] = re.sub(r'\s+', ' ', m.group(1)).strip().strip(',').strip()
     m = re.search(r'(\b[A-Z]{2,}\s*-\s*KOMPLEX[A-Z ]*?)(?=\s+BLOK|\s{2}|$)', d)   # RNDZ - Komplex…
     if m: meta['projekt'] = m.group(1).strip().title()
@@ -330,6 +362,13 @@ def legend_to_csv_page(page_text):
             if m:
                 area = parse_area(m.group(1))
                 name = name[:m.start()].strip() or name
+        # kód + plocha, ale BEZ názvu = fantóm zo schémy/pečiatky za legendou → zahoď
+        # (reálna miestnosť má vždy názov) — napr. RNDZ B2: „B2.3.C 60,00", „B.05 3,00"
+        if not name.strip():
+            return
+        # názov = výkaz okien/dverí zo schémy (Krasnany „W1B W1A ZK4a …") → zahoď
+        if _is_schedule_noise(name):
+            return
         # OCR šum z rohovej pečiatky (projektant/investor…) = dlhý názov BEZ plochy → zahoď
         if area is None and len(name.strip()) > 45:
             return
@@ -351,7 +390,7 @@ def legend_to_csv_page(page_text):
 
     for t in toks:
         du = deburr(t)
-        if du.startswith('PODLAHOVA PLOCHA'):
+        if du.startswith('PODLAHOVA PL'):   # „PLOCHA" aj skratka „PL." (Krasnany: PODLAHOVA PL. CELKOVA)
             flush(); pend = None; pname = []
             pt = 'C' if 'CELKOVA' in du else 'S'
             continue

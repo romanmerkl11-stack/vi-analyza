@@ -209,11 +209,25 @@ class Handler(SimpleHTTPRequestHandler):
                 diff, interior = r.get('diff'), r.get('interiorSum')
                 printed, residential = r.get('printedTotal'), r.get('residential')
                 meta = legend.meta_from_data(data)      # rozpiska z textu PDF
-            elif ocr is not None:                       # sken / obrázok bez textu → OCR
-                items, _st = ocr.recognize_pdf(data)
-                csv = legend.to_app_csv_ocr(items, fname)
-                via = 'ocr'
-                meta = legend.extract_meta(' '.join(it.get('s', '') for it in items))
+            else:
+                # legenda ako KRIVKY (obrysy písmen, bez textovej vrstvy) — napr. IC1.
+                # to_app_csv_ocr vyžaduje kotvu „LEGENDA MIES" v rekonštruovanom texte →
+                # hárky s iným (nerozpoznaným) fontom sem nespadnú a idú ďalej na OCR.
+                if krivky is not None:
+                    try:
+                        kitems, _ks = krivky.extract_bytes(data)
+                        kcsv = legend.to_app_csv_ocr(kitems, fname)
+                        if kcsv:
+                            csv, via = kcsv, 'krivky'
+                            meta = legend.meta_from_data(data)
+                    except Exception:               # noqa: BLE001
+                        import traceback
+                        traceback.print_exc()
+                if not csv and ocr is not None:         # sken / obrázok bez textu → OCR
+                    items, _st = ocr.recognize_pdf(data)
+                    csv = legend.to_app_csv_ocr(items, fname)
+                    via = 'ocr'
+                    meta = legend.extract_meta(' '.join(it.get('s', '') for it in items))
             if not csv:
                 return self._json({'ok': False, 'error':
                     'Legenda miestností sa nenašla (ani textom, ani OCR). Skús čistejší podklad alebo výrez legendy.'})

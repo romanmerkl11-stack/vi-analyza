@@ -1,0 +1,546 @@
+{
+  "platform": "darwin",
+  "rows": [
+    {
+      "typ": "CSV",
+      "dataset": "Topolcianska (10 CSV)",
+      "cesta": "buildModel",
+      "status": "ok",
+      "detail": "podlaží=10 miest=626 jedn=83 neznáme=0 dup=0",
+      "gt": "sum-konzistencia + 0 neznámych typov"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_A_02_1NP-1050x500.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=30 jedn=0 interiér=2064.13 CELKOVÁ=2064.12 diff=+0.01",
+      "gt": "CELKOVÁ diff +0.01"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_A_03_2NP-1200X680.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=114 jedn=16 interiér=911.29 CELKOVÁ=911.30 diff=-0.01",
+      "gt": "CELKOVÁ diff -0.01"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_A_04_3+5NP-A1.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=47 jedn=7 interiér=403.96 CELKOVÁ=403.95 diff=+0.01",
+      "gt": "CELKOVÁ diff +0.01"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_A_04_3+5NP-A2.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=58 jedn=9 interiér=506.82 CELKOVÁ=506.82 diff=+0.00",
+      "gt": "CELKOVÁ diff +0.00"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_A_05_4+6NP-A1.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=47 jedn=7 interiér=403.96 CELKOVÁ=403.95 diff=+0.01",
+      "gt": "CELKOVÁ diff +0.01"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_A_05_4+6NP-A2.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=58 jedn=9 interiér=506.82 CELKOVÁ=506.82 diff=+0.00",
+      "gt": "CELKOVÁ diff +0.00"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_A_06_7NP-A1.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=37 jedn=3 interiér=359.35 CELKOVÁ=359.35 diff=+0.00",
+      "gt": "CELKOVÁ diff +0.00"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_A_06_7NP-A2.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=48 jedn=4 interiér=451.38 CELKOVÁ=451.37 diff=+0.01",
+      "gt": "CELKOVÁ diff +0.01"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_B_02_1NP-1060x680.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=96 jedn=0 interiér=2780.23 CELKOVÁ=2780.24 diff=-0.01",
+      "gt": "CELKOVÁ diff -0.01"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_B_03_2NP-1200X680.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=185 jedn=25 interiér=1509.61 CELKOVÁ=1509.58 diff=+0.03",
+      "gt": "CELKOVÁ diff +0.03"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_B_04_3+5+7NP-B1.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=58 jedn=9 interiér=506.94 CELKOVÁ=506.96 diff=-0.02",
+      "gt": "CELKOVÁ diff -0.02"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_B_04_3+5+7NP-B2.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=51 jedn=6 interiér=436.80 CELKOVÁ=436.81 diff=-0.01",
+      "gt": "CELKOVÁ diff -0.01"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_B_04_3+5+7NP-B3.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=68 jedn=10 interiér=565.67 CELKOVÁ=565.63 diff=+0.04",
+      "gt": "CELKOVÁ diff +0.04"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_B_05_4+6NP-B1.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=58 jedn=9 interiér=506.82 CELKOVÁ=506.83 diff=-0.01",
+      "gt": "CELKOVÁ diff -0.01"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_B_05_4+6NP-B2.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=50 jedn=6 interiér=436.80 CELKOVÁ=436.81 diff=-0.01",
+      "gt": "CELKOVÁ diff -0.01"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_B_05_4+6NP-B3.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=68 jedn=10 interiér=565.67 CELKOVÁ=565.63 diff=+0.04",
+      "gt": "CELKOVÁ diff +0.04"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_B_06_8NP-B1.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=48 jedn=4 interiér=451.04 CELKOVÁ=451.05 diff=-0.01",
+      "gt": "CELKOVÁ diff -0.01"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_B_06_8NP-B2.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=42 jedn=5 interiér=383.35 CELKOVÁ=383.33 diff=+0.02",
+      "gt": "CELKOVÁ diff +0.02"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_B_06_8NP-B3.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=54 jedn=7 interiér=490.18 CELKOVÁ=490.17 diff=+0.01",
+      "gt": "CELKOVÁ diff +0.01"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_C_02_1NP-C.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=11 jedn=0 interiér=493.07 CELKOVÁ=493.07 diff=+0.00",
+      "gt": "CELKOVÁ diff +0.00"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_C_03_2NP-C.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=62 jedn=9 interiér=506.44 CELKOVÁ=506.42 diff=+0.02",
+      "gt": "CELKOVÁ diff +0.02"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_C_04_3+5NP-C.pdf",
+      "cesta": "vektor",
+      "status": "known",
+      "detail": "miest=58 jedn=9 interiér=506.32 CELKOVÁ=505.73 diff=+0.59",
+      "gt": "CELKOVÁ diff +0.59 (doložená chyba výkresu)"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_C_05_4+6NP-C.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=58 jedn=9 interiér=505.69 CELKOVÁ=505.64 diff=+0.05",
+      "gt": "CELKOVÁ diff +0.05"
+    },
+    {
+      "typ": "PDF vektor/krivky (RNDZ)",
+      "dataset": "RNDZ_C_06_7NP-C.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=48 jedn=4 interiér=451.86 CELKOVÁ=451.85 diff=+0.01",
+      "gt": "CELKOVÁ diff +0.01"
+    },
+    {
+      "typ": "PDF vektor/krivky (IC1)",
+      "dataset": "01_1pp-podorys 1pp legenda.pdf",
+      "cesta": "ocr",
+      "status": "ok",
+      "detail": "miest=16 jedn=0 interiér=56.34 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor/krivky (IC1)",
+      "dataset": "03_2np-podorys 2np legenda.pdf",
+      "cesta": "krivky",
+      "status": "ok",
+      "detail": "miest=233 jedn=28 interiér=1716.95 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor/krivky (IC1)",
+      "dataset": "04_3np-podorys 3np legenda.pdf",
+      "cesta": "krivky",
+      "status": "ok",
+      "detail": "miest=233 jedn=28 interiér=1746.45 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor/krivky (IC1)",
+      "dataset": "05_4np-podorys 4np legenda.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=88 jedn=13 interiér=598.33 CELKOVÁ=598.42 diff=-0.09",
+      "gt": "GT 73/73 OK (0 chyba, 0 zle)"
+    },
+    {
+      "typ": "PDF vektor/krivky (IC1)",
+      "dataset": "06_5np-podorys 5np legenda.pdf",
+      "cesta": "krivky",
+      "status": "ok",
+      "detail": "miest=88 jedn=13 interiér=610.77 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor/krivky (IC1)",
+      "dataset": "07_6np-podorys 6np legenda.pdf",
+      "cesta": "krivky",
+      "status": "ok",
+      "detail": "miest=88 jedn=13 interiér=623.24 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor/krivky (IC1)",
+      "dataset": "08_7np-podorys 7np legenda.pdf",
+      "cesta": "krivky",
+      "status": "ok",
+      "detail": "miest=88 jedn=13 interiér=635.83 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor/krivky (IC1)",
+      "dataset": "09_8np-podorys 8np legenda.pdf",
+      "cesta": "krivky",
+      "status": "ok",
+      "detail": "miest=88 jedn=13 interiér=646.21 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor/krivky (IC1)",
+      "dataset": "10_9np-podorys 9np legenda.pdf",
+      "cesta": "krivky",
+      "status": "ok",
+      "detail": "miest=92 jedn=13 interiér=591.74 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor/krivky (IC1)",
+      "dataset": "11_10np-podorys 10np legenda.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=29 jedn=7 interiér=243.84 CELKOVÁ=243.86 diff=-0.02",
+      "gt": "CELKOVÁ diff -0.02"
+    },
+    {
+      "typ": "PDF popisky (IC2)",
+      "dataset": "10_IC2_2NP_eventove saly-A3.pdf",
+      "cesta": "flatmix",
+      "status": "ok",
+      "detail": "miest=0 jedn=26 interiér=2056.28 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF popisky (IC2)",
+      "dataset": "11_IC2_3NP_wellness-A3.pdf",
+      "cesta": "flatmix",
+      "status": "ok",
+      "detail": "miest=0 jedn=26 interiér=2056.28 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF popisky (IC2)",
+      "dataset": "12_IC2_4+5NP-A3.pdf",
+      "cesta": "flatmix",
+      "status": "ok",
+      "detail": "miest=0 jedn=76 interiér=3450.28 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF popisky (IC2)",
+      "dataset": "13_IC2_6NP-A3.pdf",
+      "cesta": "flatmix",
+      "status": "ok",
+      "detail": "miest=0 jedn=49 interiér=2632.83 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF popisky (IC2)",
+      "dataset": "14_IC2_7NP-A3.pdf",
+      "cesta": "flatmix",
+      "status": "ok",
+      "detail": "miest=0 jedn=16 interiér=1132.85 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF popisky (IC2)",
+      "dataset": "15_IC2_8NP-A3.pdf",
+      "cesta": "flatmix",
+      "status": "ok",
+      "detail": "miest=0 jedn=10 interiér=861.94 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor (Krasnany)",
+      "dataset": "BD Krasnany RP_1.01 - 1.PP-PÔDORYS.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=13 jedn=0 interiér=777.23 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor (Krasnany)",
+      "dataset": "BD Krasnany RP_1.02 - 1.NP-PÔDORYS.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=95 jedn=20 interiér=691.56 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor (Krasnany)",
+      "dataset": "BD Krasnany RP_1.03 - 2.NP-PÔDORYS.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=96 jedn=11 interiér=672.38 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor (Krasnany)",
+      "dataset": "BD Krasnany RP_1.04 - 3.NP-PÔDORYS.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=88 jedn=11 interiér=672.34 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor (Krasnany)",
+      "dataset": "BD Krasnany RP_1.05 - 4.NP-PÔDORYS.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=81 jedn=10 interiér=666.54 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor (Krasnany)",
+      "dataset": "BD Krasnany RP_1.06 - 5.NP-PÔDORYS.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=81 jedn=10 interiér=666.30 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF vektor (Krasnany)",
+      "dataset": "BD Krasnany RP_1.07 - 6.NP-PÔDORYS.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=81 jedn=10 interiér=666.29 CELKOVÁ=666.29 diff=+0.00",
+      "gt": "CELKOVÁ diff +0.00"
+    },
+    {
+      "typ": "PDF vektor (Krasnany)",
+      "dataset": "BD Krasnany RP_1.08 - 7.NP-PÔDORYS.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=81 jedn=10 interiér=666.25 CELKOVÁ=666.25 diff=+0.00",
+      "gt": "CELKOVÁ diff +0.00"
+    },
+    {
+      "typ": "PDF vektor (Krasnany)",
+      "dataset": "BD Krasnany RP_1.09 - 8.NP-PÔDORYS.pdf",
+      "cesta": "vektor",
+      "status": "ok",
+      "detail": "miest=52 jedn=5 interiér=380.49 CELKOVÁ=— diff=—",
+      "gt": ""
+    },
+    {
+      "typ": "PDF sken (Šuty)",
+      "dataset": "A 02_Podorys 1NP.pdf",
+      "cesta": "ocr",
+      "status": "windows-pending",
+      "detail": "sken bez textovej vrstvy → RapidOCR (spustiť na grafik-pc)",
+      "gt": "vytlačená ÚŽITKOVÁ/CELKOVÁ"
+    },
+    {
+      "typ": "PDF sken (Šuty)",
+      "dataset": "A 03_Podorys 2NP.pdf",
+      "cesta": "ocr",
+      "status": "windows-pending",
+      "detail": "sken bez textovej vrstvy → RapidOCR (spustiť na grafik-pc)",
+      "gt": "vytlačená ÚŽITKOVÁ/CELKOVÁ"
+    },
+    {
+      "typ": "PDF sken (Šuty)",
+      "dataset": "A 04_Podorys 3NP.pdf",
+      "cesta": "ocr",
+      "status": "windows-pending",
+      "detail": "sken bez textovej vrstvy → RapidOCR (spustiť na grafik-pc)",
+      "gt": "vytlačená ÚŽITKOVÁ/CELKOVÁ"
+    },
+    {
+      "typ": "PDF sken (Šuty)",
+      "dataset": "B 02_Podorys 1NP.pdf",
+      "cesta": "ocr",
+      "status": "windows-pending",
+      "detail": "sken bez textovej vrstvy → RapidOCR (spustiť na grafik-pc)",
+      "gt": "vytlačená ÚŽITKOVÁ/CELKOVÁ"
+    },
+    {
+      "typ": "PDF sken (Šuty)",
+      "dataset": "B 03_Podorys 2NP.pdf",
+      "cesta": "ocr",
+      "status": "windows-pending",
+      "detail": "sken bez textovej vrstvy → RapidOCR (spustiť na grafik-pc)",
+      "gt": "vytlačená ÚŽITKOVÁ/CELKOVÁ"
+    },
+    {
+      "typ": "PDF sken (Šuty)",
+      "dataset": "B 04_Podorys 3NP.pdf",
+      "cesta": "ocr",
+      "status": "windows-pending",
+      "detail": "sken bez textovej vrstvy → RapidOCR (spustiť na grafik-pc)",
+      "gt": "vytlačená ÚŽITKOVÁ/CELKOVÁ"
+    },
+    {
+      "typ": "PDF sken (Šuty)",
+      "dataset": "C 02_Podorys 1NP.pdf",
+      "cesta": "ocr",
+      "status": "windows-pending",
+      "detail": "sken bez textovej vrstvy → RapidOCR (spustiť na grafik-pc)",
+      "gt": "vytlačená ÚŽITKOVÁ/CELKOVÁ"
+    },
+    {
+      "typ": "Obrázok (OCR)",
+      "dataset": "cely_A1_4+6NP.png",
+      "cesta": "ocr",
+      "status": "windows-pending",
+      "detail": "raster → RapidOCR (spustiť na grafik-pc)",
+      "gt": "bez GT"
+    },
+    {
+      "typ": "Obrázok (OCR)",
+      "dataset": "cely_C_1NP.png",
+      "cesta": "ocr",
+      "status": "windows-pending",
+      "detail": "raster → RapidOCR (spustiť na grafik-pc)",
+      "gt": "GT cely_C_1NP.csv"
+    },
+    {
+      "typ": "Obrázok (OCR)",
+      "dataset": "cely_C_2NP.png",
+      "cesta": "ocr",
+      "status": "windows-pending",
+      "detail": "raster → RapidOCR (spustiť na grafik-pc)",
+      "gt": "bez GT"
+    },
+    {
+      "typ": "Obrázok (OCR)",
+      "dataset": "vyrez_A1_4+6NP.png",
+      "cesta": "ocr",
+      "status": "windows-pending",
+      "detail": "raster → RapidOCR (spustiť na grafik-pc)",
+      "gt": "bez GT"
+    },
+    {
+      "typ": "Obrázok (OCR)",
+      "dataset": "vyrez_C_2NP.png",
+      "cesta": "ocr",
+      "status": "windows-pending",
+      "detail": "raster → RapidOCR (spustiť na grafik-pc)",
+      "gt": "bez GT"
+    },
+    {
+      "typ": "ZIP",
+      "dataset": "Claude-handoff-2026-08-18.zip",
+      "cesta": "unpack→CSV/PDF",
+      "status": "ok",
+      "detail": "21 súborov (0 CSV, 0 PDF)",
+      "gt": "obsah čitateľný"
+    },
+    {
+      "typ": "ZIP",
+      "dataset": "EXPEDICIA 0.9_20-07-10.zip",
+      "cesta": "unpack→CSV/PDF",
+      "status": "ok",
+      "detail": "55 súborov (0 CSV, 53 PDF)",
+      "gt": "obsah čitateľný"
+    },
+    {
+      "typ": "JSON (krivky výstup)",
+      "dataset": "IC1 6NP → JSON",
+      "cesta": "krivky→JSON→FlatmixCore",
+      "status": "ok",
+      "detail": "368 položiek, štruktúra {s,x,y,w,h,rot} OK",
+      "gt": "štruktúra položiek"
+    },
+    {
+      "typ": "DXF (oracle)",
+      "dataset": "1NP SAR.dxf",
+      "cesta": "vi_extract",
+      "status": "known",
+      "detail": "SEDÍ 216/219 (NESEDÍ 3 = doložené chyby výkresu)",
+      "gt": "1np-1.csv (rozdiely = KONTROLA_vykresov.md)"
+    },
+    {
+      "typ": "DXF (oracle)",
+      "dataset": "3NP SAR.dxf",
+      "cesta": "vi_extract",
+      "status": "known",
+      "detail": "SEDÍ 202/207 (NESEDÍ 5 = doložené chyby výkresu)",
+      "gt": "3np-1.csv (rozdiely = KONTROLA_vykresov.md)"
+    }
+  ],
+  "summary": {
+    "ok": 52,
+    "known": 3,
+    "windows-pending": 12
+  }
+}

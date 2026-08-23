@@ -1,0 +1,176 @@
+{
+ "IC1_1PP": [
+  {
+   "file": "01_1pp-podorys 1pp legenda.pdf",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 45,
+   "interior": 139.04,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 3
+  }
+ ],
+ "SUTY": [
+  {
+   "file": "01_Podorys zakladov.pdf",
+   "ok": false,
+   "note": "legenda nenajdena ziadnou cestou"
+  },
+  {
+   "file": "02_Podorys 1NP.pdf",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 20,
+   "interior": 160.8,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 10
+  },
+  {
+   "file": "03_Podorys 2NP.pdf",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 20,
+   "interior": 159.16,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 9
+  },
+  {
+   "file": "04_Podorys 3NP.pdf",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 20,
+   "interior": 151.51,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 9
+  },
+  {
+   "file": "05_Podorys krovu.pdf",
+   "ok": false,
+   "note": "legenda nenajdena ziadnou cestou"
+  },
+  {
+   "file": "01_Podorys zakladov.pdf",
+   "ok": false,
+   "note": "legenda nenajdena ziadnou cestou"
+  },
+  {
+   "file": "02_Podorys 1NP.pdf",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 32,
+   "interior": 254.18,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 13
+  },
+  {
+   "file": "03_Podorys 2NP.pdf",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 26,
+   "interior": 237.18,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 13
+  },
+  {
+   "file": "04_Podorys 3NP.pdf",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 26,
+   "interior": 223.35,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 13
+  },
+  {
+   "file": "05_Podorys krovu.pdf",
+   "ok": false,
+   "note": "legenda nenajdena ziadnou cestou"
+  },
+  {
+   "file": "01_Podorys zakladov.pdf",
+   "ok": false,
+   "note": "legenda nenajdena ziadnou cestou"
+  },
+  {
+   "file": "02_Podorys 1NP.pdf",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 10,
+   "interior": 61.9,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 9
+  }
+ ],
+ "OBRAZKY": [
+  {
+   "file": "cely_A1_4+6NP.png",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 47,
+   "interior": 403.96,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 16
+  },
+  {
+   "file": "cely_C_1NP.png",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 11,
+   "interior": 493.07,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 7
+  },
+  {
+   "file": "cely_C_2NP.png",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 56,
+   "interior": 455.29,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 21
+  },
+  {
+   "file": "vyrez_A1_4+6NP.png",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 47,
+   "interior": 0.0,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 11
+  },
+  {
+   "file": "vyrez_C_2NP.png",
+   "ok": true,
+   "via": "ocr",
+   "rooms": 14,
+   "interior": 136.3,
+   "printed": null,
+   "diff": null,
+   "discarded": [],
+   "types": 11
+  }
+ ]
+}

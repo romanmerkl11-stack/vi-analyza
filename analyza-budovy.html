@@ -273,9 +273,29 @@
 </head>
 <body>
 <header>
-  <h1>Analýza budovy — legenda miestností</h1>
+  <h1>Analýza budovy — legenda miestností <span id="appVer" title="Verzia aplikácie — over, či máš najnovšiu" style="font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;color:#087A55;background:#ECFDF6;border:1px solid #B8E4D4;border-radius:999px;padding:4px 9px;vertical-align:middle;margin-left:10px;white-space:nowrap"></span></h1>
   <p>Nahraj CSV exporty legendy miestností (alebo ZIP), prípadne PDF výkresy pre flatmix. Spracovanie prebieha lokálne v prehliadači — dáta neopúšťajú tvoj počítač.</p>
 </header>
+<script>
+/* JEDNA verzia aplikácie = verzia GitHub releasu (dátumová schéma, napr. 2026.08.21).
+   Launcher ju obnovuje z gitu; toto číslo MUSÍ sedieť s release tagom `v<verzia>` a manifestom. */
+window.APP_VERSION = '2026.08.23';
+(function(){
+  var txt = 'verzia ' + window.APP_VERSION;
+  var el = document.getElementById('appVer');
+  if (el) el.textContent = txt;                 // odznak v hlavičke (režim Úpravy)
+  // VŽDY viditeľný odznak (aj v Prezentácii, kde je hlavička skrytá)
+  var fx = document.createElement('div');
+  fx.textContent = txt;
+  fx.title = 'Verzia aplikácie — over, či máš najnovšiu';
+  fx.style.cssText = 'position:fixed;right:10px;bottom:10px;z-index:99999;'
+    + 'font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em;'
+    + 'color:#0B3B91;background:rgba(255,255,255,.92);border:1px solid #BFD0EA;'
+    + 'border-radius:999px;padding:5px 10px;box-shadow:0 1px 5px rgba(11,59,145,.16);'
+    + 'pointer-events:none';
+  (document.body || document.documentElement).appendChild(fx);
+})();
+</script>
 
 <div class="wrap">
   <div id="drop" class="drop">
@@ -949,6 +969,40 @@
       .replace(/[.,/]+/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
+  // ---------- rozpoznanie SMETIA v názve typu miestnosti ----------
+  // Do stĺpca „názov miestnosti“ preteká text zo susednej schémy / pečiatky / výkazu okien
+  // (najmä keď detectHeader zlyhá a stĺpce padnú na fixný index). Reálny názov miestnosti
+  // to nikdy nie je. Logika je zrkadlená z tools/pdf_legend.py (_STAMP_KW, _is_schedule_noise)
+  // — obe cesty (Python parser aj JS) musia dať to isté.
+  var _STAMP_KW = ['DATUM', 'PROJEKTANT', 'VYPRACOVAL', 'MIERKA', 'STUPEN', 'FORMAT', 'REVIZIA',
+    'INVESTOR', 'NAZOV STAVBY', 'NAZOV VYKRESU', 'CISLO VYKRESU', 'SPRACOVAL', 'ZODPOVED'];
+  function isScheduleNoise(name) {
+    var d = deburr(name);
+    for (var i = 0; i < _STAMP_KW.length; i++) { if (d.indexOf(_STAMP_KW[i]) >= 0) return true; }
+    var toks = String(name || '').trim().split(/\s+/).filter(function (t) { return t; });
+    if (toks.length < 3) return false;
+    var codes = toks.filter(function (t) { return /^[A-Za-zŠČšč]{1,3}\d/.test(t); }).length;
+    if (codes >= 3 && codes >= 0.5 * toks.length) return true;      // výkaz okien/dverí (W1B ZK4a…)
+    var singles = toks.filter(function (t) { return t.length <= 2; }).length;
+    if (singles >= 4 && singles >= 0.7 * toks.length) return true;  // bloková schéma A B C D…
+    return false;
+  }
+  // Vráti DÔVOD (string) ak je názov auto-smetie na zahodenie, inak null (vyzerá ako reálny názov).
+  // Konzervatívne: nezahadzuje krátke reálne názvy (WC, KK) — tie majú vlastnú kategóriu;
+  // dvojznakové neznáme (napr. „IN“) prejdú do „INÉ (NA OVERENIE)“ na ručnú triáž.
+  function autoNoiseReason(name) {
+    var raw = String(name || '').trim();
+    if (!raw) return 'prázdny názov';
+    if (isScheduleNoise(raw)) return 'text schémy / pečiatky';
+    var d = deburr(raw).replace(/"[^"]*"/g, ' ').replace(/[.,/]+/g, ' ').replace(/\s+/g, ' ').trim();
+    var core = d.replace(/\b[A-Z0-9]+\.[A-Z0-9.\-]+\b/g, ' ').replace(/\s+/g, ' ').trim();  // preč čisté kódy
+    if (!core) return 'kód bez názvu';
+    var toks = core.split(' ');
+    if (toks.every(function (t) { return t.length <= 1; })) return 'jednopísmenové (schéma)';
+    if (toks.length === 1 && core.length <= 3 && !/[AEIOUY]/.test(core) && core !== 'WC' && core !== 'KK') return 'fragment bez samohlásky';
+    return null;
+  }
+
   /* ---------- CSV parser (oddeľovač ';', úvodzovky, escaped "") ---------- */
 
   function parseCSVText(text) {
@@ -1087,7 +1141,9 @@
   }
   function roomCategory(name) {
     var full = deburr(name);
-    if (_catOverrides[full]) return catFlags(_catOverrides[full]);
+    // Ručné zaradenie má prednosť — okrem sentinelov: __SKIP__ (zahodené, rieši parseFloor)
+    // a __KEEP__ (len „neauto-zahadzuj“, klasifikuj podľa kľúčových slov).
+    if (_catOverrides[full] && _catOverrides[full] !== '__SKIP__' && _catOverrides[full] !== '__KEEP__') return catFlags(_catOverrides[full]);
     // jadro názvu na klasifikáciu: zahoď prefix „NEBYTOVÝ PRIESTOR -", blok v úvodzovkách
     // („A2"), interpunkciu a viacnásobné medzery. Preklepy/OCR: porovnávame bez diakritiky (deburr).
     var d = full
@@ -1112,7 +1168,7 @@
     if (/^(SCHODISKO|VYTAH|RAMPA|PODESTA|EXTERIEROVE SCHODISKO|PODLAHA POD SCHODMI)/.test(d)) return { cat: 'SPOLOČNÉ KOMUNIKÁCIE', living: false };
     // KOMUNIKÁCIA (v jednotke — poloha ju neskôr môže preklopiť na spoločnú)
     if (/^(VSTUPNA PREDSIEN|VSTUPNA HALA|POZIARNA PREDSIEN|PREDSIEN|CHODBA|SATNIK|VSTUPNE PRIESTOR|ZADVERIE)/.test(d)) return { cat: 'KOMUNIKÁCIA', living: false };
-    if (/^SKLAD\b/.test(d) || /^KOMORA/.test(d)) return { cat: 'SKLAD', living: false, sklad: true };
+    if (/^SKLAD\b/.test(d) || /^KOMORA/.test(d) || /^KOBKA/.test(d) || /^PIVNIC/.test(d)) return { cat: 'SKLAD', living: false, sklad: true };
     if (/^(PARKOVAC|PARKOVISK|PARKOVANI|STATIE|STALIE)/.test(d) || /GARAZ/.test(d)) return { cat: 'GARÁŽ / PARKOVANIE', living: false, garaz: true };
     // TECHNICKÉ PRIESTORY sú spoločné; predajné kancelárie/obchody majú vlastnú kategóriu.
     if (/\bTECH\b|TECHNICK|KOTOLN|ELEKTROROZVOD|ODPAD|UPRATOVAC|\bEPS\b|\bUPS\b|BATERIE|STROJOVN|VYMENIKOV|SERVEROV|PRE SPRAVCU/.test(d)) return { cat: 'TECHNICKÉ PRIESTORY', living: false };
@@ -1182,7 +1238,8 @@
       units: [],           // {code,type,floor,block,interior,exterior,izby,rooms,spaciKut,hasOwnArea}
       rooms: [],           // všetky dátové miestnosti {code,name,cat,interior,exterior,floor,block,unitCode,...}
       floorTotalCsv: null, // PODL. PLOCHA CELKOVÁ
-      groupSubtotals: []   // hodnoty PODLAHOVÁ PLOCHA (pre kontrolu)
+      groupSubtotals: [],  // hodnoty PODLAHOVÁ PLOCHA (pre kontrolu)
+      discarded: []        // zahodené názvy (auto-smetie / ručne __SKIP__) — mimo analýzy
     };
 
     var curBlock = null;     // roman
@@ -1280,6 +1337,17 @@
 
       // bežná miestnosť (beznázvové riadky preskočíme)
       if (!name) continue;
+      // ZAHODENIE + PLOCHA AKO SIGNÁL (Roman): riadok S plochou = reálny meraný priestor →
+      //   NIKDY auto-nezahadzuj. Bez plochy + nezmyselný názov (pečiatka/výkaz okien/schéma/
+      //   jednopísmenové) = nie je miestnosť → zahoď. Bez plochy + zmysluplný názov = ponechaj
+      //   a označ „bez plochy" (over, či plocha nechýba). Ručný __SKIP__ preváži vždy.
+      var _ov = _catOverrides[deburr(name)];
+      if (_ov === '__SKIP__') { floor.discarded.push({ name: name, reason: 'zahodené ručne', manual: true }); continue; }
+      var _hasArea = (interior != null && interior !== 0) || (exterior != null && exterior !== 0);
+      if (!_ov && !_hasArea) {
+        var _nr = autoNoiseReason(name);
+        if (_nr) { floor.discarded.push({ name: name, reason: _nr, manual: false }); continue; }
+      }
       var rc = roomCategory(name);
       // Poloha v jednotke určuje vlastníctvo. „Neobytná miestnosť“ v byte/apartmáne
       // je predajná súčasť jednotky, iba sa nezapočíta do obytnej izbovosti.
@@ -1398,13 +1466,25 @@
     });
     var garazRooms = allRooms.filter(function (r) { return r.garaz; });
 
+    // zahodené názvy (auto-smetie + ručné) zlúčené podľa názvu — pre panel „Zahodené“
+    var discMap = {};
+    floors.forEach(function (fl) {
+      (fl.discarded || []).forEach(function (dsc) {
+        var g = discMap[dsc.name] || (discMap[dsc.name] = { name: dsc.name, count: 0, reason: dsc.reason, manual: dsc.manual });
+        g.count++;
+      });
+    });
+    var discarded = Object.keys(discMap).map(function (k) { return discMap[k]; })
+      .sort(function (a, b) { return b.count - a.count; });
+
     var model = {
       floors: floors,
       blocks: Object.keys(blocks).map(function (k) { return blocks[k]; }),
       units: allUnits,            // byty/apartmány/obchodné priestory (z hlavičiek)
       skladUnits: skladUnits,     // sklady (z miestností)
       garazRooms: garazRooms,
-      rooms: allRooms
+      rooms: allRooms,
+      discarded: discarded        // zahodené názvy mimo analýzy (na review/vrátenie)
     };
     // Bilancie sčítavajú klasifikované plochy priamo a fungujú aj pri CSV bez
     // riadku „PODLAHOVÁ PLOCHA CELKOVÁ“. Štatistiky ich preto môžu použiť ako
@@ -1662,9 +1742,18 @@
       // Počítané = reálne plochy jednotiek + samostatných miestností. Niektoré exporty
       // (Topoľčianska) majú všetky riadky medzisúčtov prázdne, hoci miestnosti plochy majú.
       // Krížová kontrola preto nesmie ukazovať falošnú nulu len preto, že zdroj nemá subtotal.
-      var floorUnits = fl.units.reduce(function (a, u) { return a + (u.interior || 0); }, 0);
-      var floorRooms = fl.rooms.filter(function (r) { return r.unitCode == null; })
-        .reduce(function (a, r) { return a + (r.interior || 0); }, 0);
+      // Dva štýly exportu: (A) plocha je v MIESTNOSTIACH (RNDZ — byt = súčet miestností),
+      // (B) plocha je v SUBTOTALE jednotky, miestnosti bez plochy (Topoľčianska). Diskriminátor:
+      // ak jednotka má miestnosti s plochou (_roomInt>0) → rátaj jej miestnosti, subtotal NIE
+      // (inak dvojité); ak nemá (_roomInt=0) → rátaj subtotal jednotky. Miestnosti sa rátajú
+      // VŽDY všetky (aj kobky/sklady s unitCode bytu, ktorých subtotal ich nezahŕňa → koniec
+      // falošných ✗ na 1PP/1NP). (fix Roman)
+      // Jednotku ráta ak: má VLASTNÚ plochu (obchod, hasOwnArea — vlastná, aj keď sa zaň
+      // „prilepili" samostatné sklady), ALEBO jej miestnosti nemajú plochu (Topoľčianska byt =
+      // plocha v subtotale). Byt s plochou v miestnostiach (RNDZ) sa neráta cez subtotal (miestnosti).
+      var _countUnit = function (u) { return u.hasOwnArea || (u._roomInt || 0) === 0; };
+      var floorRooms = fl.rooms.reduce(function (a, r) { return a + (r.interior || 0); }, 0);
+      var floorUnits = fl.units.reduce(function (a, u) { return a + (_countUnit(u) ? (u.interior || 0) : 0); }, 0);
       var calculated = floorUnits + floorRooms;
       var ok = (fl.floorTotalCsv == null) ? null : Math.abs(calculated - fl.floorTotalCsv) <= EPS;
       // blokové medzisúčty
@@ -1673,8 +1762,8 @@
         // súčet medzisúčtov skupín daného bloku nie je priamo evidovaný po blokoch v parseri,
         // preto kontrolujeme blok cez izbovo spočítané plochy:
         var bUnits = fl.units.filter(function (u) { return u.block === roman; });
-        var bRooms = fl.rooms.filter(function (r) { return r.block === roman && r.unitCode == null; });
-        var calc = bUnits.reduce(function (a, u) { return a + (u.interior || 0); }, 0)
+        var bRooms = fl.rooms.filter(function (r) { return r.block === roman; });
+        var calc = bUnits.reduce(function (a, u) { return a + (_countUnit(u) ? (u.interior || 0) : 0); }, 0)
                  + bRooms.reduce(function (a, r) { return a + (r.interior || 0); }, 0);
         var bok = (b.subtotalCsv == null) ? null : Math.abs(calc - b.subtotalCsv) <= EPS;
         return { roman: roman, so: b.so, calc: calc, csv: b.subtotalCsv, ok: bok };
@@ -1691,6 +1780,16 @@
     model.rooms.forEach(function (r) { if (r.unknown) { unknownMap[r.name] = (unknownMap[r.name] || 0) + 1; } });
     var unknown = Object.keys(unknownMap).map(function (k) { return { name: k, count: unknownMap[k] }; });
 
+    // miestnosti BEZ plochy so zmysluplným názvom (Roman: „hľadaj, prečo nemá plochu")
+    // — buď legitímne bez m² (výťahová šachta), alebo chýbajúca plocha v podklade/čítaní.
+    var noAreaMap = {};
+    model.rooms.forEach(function (r) {
+      var has = (r.interior != null && r.interior !== 0) || (r.exterior != null && r.exterior !== 0);
+      if (!has) noAreaMap[r.name] = (noAreaMap[r.name] || 0) + 1;
+    });
+    var noArea = Object.keys(noAreaMap).map(function (k) { return { name: k, count: noAreaMap[k] }; })
+      .sort(function (a, b) { return b.count - a.count; });
+
     // jednotky s podozrivou izbovosťou (0 izieb pri byte/apartmáne)
     var zeroIzby = model.units.filter(function (u) {
       return ['BYT', 'APARTMÁN'].indexOf(u.type) >= 0 && (!u.izby || u.izby === 0);
@@ -1700,7 +1799,7 @@
     var badFormat = model.floors.filter(function (fl) { return fl.formatOK === false; })
       .map(function (fl) { return { label: fl.label, id: fl.id }; });
 
-    return { floorChecks: floorChecks, spaciKut: spaciKut, unknown: unknown, zeroIzby: zeroIzby, badFormat: badFormat };
+    return { floorChecks: floorChecks, spaciKut: spaciKut, unknown: unknown, noArea: noArea, zeroIzby: zeroIzby, badFormat: badFormat };
   }
 
   return {
@@ -1732,7 +1831,9 @@
   var CATS = ['OBYTNÁ','KUCHYŇA','HYGIENA','KOMUNIKÁCIA','SPOLOČNÉ KOMUNIKÁCIE','EXTERIÉR','SKLAD','GARÁŽ / PARKOVANIE','NEBYTOVÉ PRIESTORY','TECHNICKÉ PRIESTORY','VEREJNÉ','SPACÍ KÚT','INÉ (NA OVERENIE)'];
   function catSelect(name,cur){
     var opts=CATS.map(function(c){return '<option'+(c===cur?' selected':'')+'>'+esc(c)+'</option>';}).join('');
-    if(CATS.indexOf(cur)<0) opts='<option selected>'+esc(cur)+'</option>'+opts;
+    if(CATS.indexOf(cur)<0 && cur!=='__SKIP__') opts='<option selected>'+esc(cur)+'</option>'+opts;
+    // akcia „zahodiť“ — nie je to kategória, miestnosť sa vylúči z celej analýzy (a naučí sa)
+    opts+='<option value="__SKIP__"'+(cur==='__SKIP__'?' selected':'')+'>— nie je miestnosť (zahodiť) —</option>';
     return '<select class="catsel" data-name="'+encodeURIComponent(name)+'">'+opts+'</select>';
   }
 
@@ -1814,6 +1915,18 @@
     try{ localStorage.setItem(CAT_LEARN_KEY, JSON.stringify(catOverrides)); }catch(e){}   // NAUČ sa (perzistentne)
     if(lastFiles){ model=Core.buildModel(lastFiles); render();
       var b=[].find.call(document.querySelectorAll('nav.tabs button'),function(x){return x.getAttribute('data-tab')==='typy';}); if(b) b.click();
+    }
+  });
+
+  // „Vrátiť“ zahodený názov — nastaví __KEEP__ (neauto-zahadzuj, klasifikuj normálne) a naučí sa
+  document.addEventListener('click',function(e){
+    var b=e.target.closest && e.target.closest('[data-restore]'); if(!b) return;
+    var name=decodeURIComponent(b.getAttribute('data-restore'));
+    catOverrides[Core.deburr(name)]='__KEEP__';
+    Core.setCategoryOverrides(catOverrides);
+    try{ localStorage.setItem(CAT_LEARN_KEY, JSON.stringify(catOverrides)); }catch(err){}
+    if(lastFiles){ model=Core.buildModel(lastFiles); render();
+      var bt=[].find.call(document.querySelectorAll('nav.tabs button'),function(x){return x.getAttribute('data-tab')==='typy';}); if(bt) bt.click();
     }
   });
 
@@ -2065,7 +2178,14 @@
     var nav=document.getElementById('tabs'); nav.style.display='flex';
     var groupFor=function(k){if(k==='ekonomika')return'Projekt';if(['bilancie','podlazia','podlaziaso'].indexOf(k)>=0)return'Budova';if(['jednotky','dispozicie','typy','povrchy'].indexOf(k)>=0)return'Jednotky';if(['normy','kontrola'].indexOf(k)>=0)return'Kontrola';return'Nástroje';};
     var prevGroup='';
-    nav.innerHTML=TABS.map(function(t,i){var g=groupFor(t[0]),start=g!==prevGroup;prevGroup=g;return '<button data-tab="'+t[0]+'" data-group="'+g+'" title="'+g+' · '+t[1]+'" class="'+(i===0?'active ':'')+(start?'group-start':'')+'">'+t[1]+'</button>';}).join('');
+    // počet položiek na triáž v Typoch: neznáme (INÉ) + novo auto-zahodené názvy
+    var triage=0;
+    if(model&&model.stats&&model.stats.roomTypeRows){
+      triage=model.stats.roomTypeRows.filter(function(r){return r.cat==='INÉ (NA OVERENIE)';}).length
+            +(model.discarded||[]).filter(function(d){return !d.manual;}).length;
+    }
+    var badgeHtml=function(k){return (k==='typy'&&triage>0)?' <span title="nové/neznáme typy na zaradenie" style="display:inline-block;min-width:16px;padding:0 5px;margin-left:5px;border-radius:9px;background:#e8590c;color:#fff;font-size:11px;line-height:16px;text-align:center;font-weight:700">'+triage+'</span>':'';};
+    nav.innerHTML=TABS.map(function(t,i){var g=groupFor(t[0]),start=g!==prevGroup;prevGroup=g;return '<button data-tab="'+t[0]+'" data-group="'+g+'" title="'+g+' · '+t[1]+'" class="'+(i===0?'active ':'')+(start?'group-start':'')+'">'+t[1]+badgeHtml(t[0])+'</button>';}).join('');
     var content=document.getElementById('content');
     content.innerHTML=TABS.map(function(t,i){return '<section class="tab'+(i===0?' active':'')+'" id="sec-'+t[0]+'">'+renderTab(t[0])+'</section>';}).join('');
     nav.querySelectorAll('button').forEach(function(b){ b.addEventListener('click',function(){
@@ -2181,8 +2301,20 @@
       var learned=Object.keys(catOverrides).length;
       var learnNote='<b>Appka sa učí:</b> keď zmeníš zaradenie, <b>zapamätá si ho</b> a použije aj pri ďalších podkladoch (aj po zatvorení). '+
         (learned? '<button class="copybtn" data-catreset="1" style="margin-left:6px">🔄 Zabudnúť naučené ('+learned+')</button>' : '');
-      return card('Typy miestností','Klikni na kategóriu a zmeň zaradenie miestnosti — celá analýza sa prepočíta. Zmena platí pre všetky miestnosti s rovnakým názvom. '+learnNote+'<br>Pozn.: komunikácie sa členia podľa polohy — <b>KOMUNIKÁCIA</b> = v jednotke (predajná plocha), <b>SPOLOČNÉ KOMUNIKÁCIE</b> = spoločné priestory.',
+      var typesCard=card('Typy miestností','Klikni na kategóriu a zmeň zaradenie miestnosti — celá analýza sa prepočíta. Zmena platí pre všetky miestnosti s rovnakým názvom. Ak riadok nie je miestnosť (smetie z pečiatky/výkazu), zvoľ <b>„— nie je miestnosť (zahodiť) —“</b>. '+learnNote+'<br>Pozn.: komunikácie sa členia podľa polohy — <b>KOMUNIKÁCIA</b> = v jednotke (predajná plocha), <b>SPOLOČNÉ KOMUNIKÁCIE</b> = spoločné priestory.',
         makeTable(['Názov miestnosti','Kategória','Počet','Interiér m²','Exteriér m²'],rows));
+      var disc=(model.discarded||[]);
+      var discCard='';
+      if(disc.length){
+        var drows=disc.map(function(d){
+          var nm=d.name.length>70?d.name.slice(0,70)+'…':d.name;
+          return [nm,(d.manual?'ručne':'auto — '+d.reason),d.count,
+            raw('<button class="copybtn" data-restore="'+encodeURIComponent(d.name)+'">↩︎ vrátiť medzi miestnosti</button>')];
+        });
+        discCard=card('Zahodené ('+disc.length+')','Tieto názvy sa <b>nerátajú do analýzy</b> — sú to nezmyselné reťazce (text pečiatky, výkaz okien/dverí, bloková schéma, jednopísmenové). Ak niektorý predsa je miestnosť, vráť ho späť (naučí sa).',
+          makeTable(['Zahodený názov','Dôvod','Počet',''],drows));
+      }
+      return typesCard+discCard;
     }
     if(key==='efektivita'){
       var T2=st.totals;
@@ -2505,6 +2637,7 @@
     if(c.spaciKut.length){ notes+='<div class="warnbox"><b>SPACÍ KÚT ('+c.spaciKut.length+'×)</b> — nezarátaný do izbovosti. Skontroluj, či ho pri dotknutých jednotkách nemá byť zarátaný: '+
       c.spaciKut.map(function(x){return esc((x.unitCode||'?')+' / '+x.floor);}).join('; ')+'</div>'; }
     if(c.unknown.length){ notes+='<div class="warnbox"><b>Neznáme názvy miestností</b> (zaradené ako „INÉ"): '+c.unknown.map(function(u){return esc(u.name)+' ('+u.count+'×)';}).join('; ')+'</div>'; }
+    if(c.noArea && c.noArea.length){ notes+='<div class="warnbox"><b>Miestnosti bez plochy ('+c.noArea.length+' názvov)</b> — over, či im plocha nechýba (napr. výťahová šachta ju nemá legitímne; inak môže chýbať v podklade/čítaní): '+c.noArea.map(function(u){return esc(u.name)+' ('+u.count+'×)';}).join('; ')+'</div>'; }
     if(c.zeroIzby.length){ notes+='<div class="warnbox"><b>Byty/apartmány s 0 izbami</b> — over: '+c.zeroIzby.map(function(z){return esc(z.code+' '+z.floor);}).join('; ')+'</div>'; }
     if(!notes) notes='<div class="warnbox">Žiadne upozornenia — všetky názvy rozpoznané, izbovosť priradená.</div>';
     return tbl+card('Upozornenia','',notes);
@@ -2761,6 +2894,14 @@
   }
   function ekKatCard(p){
     var k=ekKat(p);
+    // auto-doplnenie z rozpisky (miesto stavby): parcely + k.ú., ak je kataster ešte prázdny
+    // (rovnako ako konkurencia dopĺňa lokalitu). Užívateľove parcely neprepisujeme.
+    if(lastRozpiska && lastRozpiska.parcels && !k.rows.length){
+      ekKatParseNumbers(lastRozpiska.parcels).forEach(function(n){ k.rows.push({number:n}); });
+      if(!k.ku) k.ku = (lastRozpiska.ku || lastRozpiska.miesto || '');
+    } else if(!k.ku && lastRozpiska && (lastRozpiska.ku || lastRozpiska.miesto)){
+      k.ku = lastRozpiska.ku || lastRozpiska.miesto;   // aspoň k.ú. keď parcely zadal ručne
+    }
     var rozp = (lastRozpiska && lastRozpiska.parcels) ? ekKatParseNumbers(lastRozpiska.parcels).length : 0;
     var rows=k.rows.map(function(r,i){
       var num='<input type="text" data-ek="katrow" data-idx="'+i+'" data-f="number" value="'+escAttr(r.number||'')+'" '+
@@ -3261,7 +3402,7 @@
       return '<tr><td>'+esc(t)+'</td>'+ekO('ek_o_avg_'+ekSlug(t), fmt(avg[t]))+'</tr>';
     }).join('');
     var kk=ekKonk(p);
-    if(!kk.miesto && lastRozpiska && lastRozpiska.miesto) kk.miesto=lastRozpiska.miesto;   // lokalita z rozpisky ako návrh
+    if(!kk.miesto && lastRozpiska && (lastRozpiska.miesto||lastRozpiska.ku)) kk.miesto=lastRozpiska.miesto||lastRozpiska.ku;   // lokalita z rozpisky ako návrh (fallback k.ú.)
     var predaj='<div class="card ek-competitors"><h2>Analýza predaja (konkurencia)</h2>'+
       '<p class="hint">Porovnateľné projekty a ceny €/m². Zadaj <b>výmeru</b> a <b>€/m²</b> (alebo cenu bez DPH) — '+
       'zvyšné hodnoty (cena, €/m², <b>s DPH</b>) aj <b>súčty a priemery</b> sa dopočítajú automaticky.</p>'+
