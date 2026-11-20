@@ -198,7 +198,9 @@ class Handler(SimpleHTTPRequestHandler):
         data = self._body()
         if not data:
             return self._json({'ok': False, 'error': 'Prázdne telo požiadavky.'}, 400)
-        fname = self.headers.get('X-Filename') or 'pdf'
+        # názov výkresu nesie objekt (GR_SO.22.7-8 → SO 7 a SO 8) a podlažie (…_podkr)
+        from urllib.parse import unquote
+        fname = unquote(self.headers.get('X-Filename') or '') or 'pdf'
         try:
             csv = legend.to_app_csv(data, fname)       # vektorové PDF (textová vrstva)
             via = 'vektor'
