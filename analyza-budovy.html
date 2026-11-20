@@ -279,7 +279,7 @@
 <script>
 /* JEDNA verzia aplikácie = verzia GitHub releasu (dátumová schéma, napr. 2026.08.21).
    Launcher ju obnovuje z gitu; toto číslo MUSÍ sedieť s release tagom `v<verzia>` a manifestom. */
-window.APP_VERSION = '2026.08.23';
+window.APP_VERSION = '2026.11.20';
 (function(){
   var txt = 'verzia ' + window.APP_VERSION;
   var el = document.getElementById('appVer');
@@ -706,18 +706,34 @@ window.APP_VERSION = '2026.08.23';
 
   /* ---------- násobič podlaží z názvu súboru ---------- */
 
+  // Objekty z názvu výkresu (zrkadlo AnalyzaCore.objectsFromName / pdf_legend.objects_from_name):
+  // „GR_SO.22.7-8-02.5_podkr" → ['7','8'] — jeden výkres platí pre dva identické objekty.
+  function objectsFromName(name) {
+    var base = String(name || '').replace(/^.*[\/\\]/, '');
+    var m = base.match(/SO[._\s-]?\d+\.(\d+)(?:-(\d+))?(?=[-_.\s]|$)/i);
+    if (!m) return [];
+    var a = parseInt(m[1], 10);
+    if (m[2] != null) {
+      var b = parseInt(m[2], 10);
+      if (b > a && b <= a + 9) { var out = []; for (var n = a; n <= b; n++) out.push(String(n)); return out; }
+    }
+    return [String(a)];
+  }
+
+  // násobič = počet podlaží v názve × počet objektov (SO.22.7-8 → ×2)
   function floorMultiplier(name) {
     var base = String(name).replace(/^.*[\/\\]/, '');
+    var objs = objectsFromName(base);
+    var no = Math.max(1, objs.length);
+    function res(lv) { return { mult: Math.max(1, lv.length) * no, levels: lv, objects: objs }; }
     var m = base.match(/(\d{1,2}(?:\s*\+\s*\d{1,2})+)\s*\.?\s*NP/i);
-    if (m) {
-      var lv = (m[1].match(/\d+/g) || []).map(Number);
-      return { mult: lv.length, levels: lv };
-    }
+    if (m) return res((m[1].match(/\d+/g) || []).map(Number));
     m = base.match(/(\d{1,2})\s*\.?\s*NP/i);
-    if (m) return { mult: 1, levels: [+m[1]] };
+    if (m) return res([+m[1]]);
     m = base.match(/(\d{1,2})\s*\.?\s*PP/i);
-    if (m) return { mult: 1, levels: [-m[1]] };
-    return { mult: 1, levels: [] };
+    if (m) return res([-m[1]]);
+    if (/podkr/i.test(base)) return res([99]);        // podkrovie — nad všetkými NP
+    return res([]);
   }
 
   /* ---------- jeden súbor ---------- */
@@ -725,7 +741,7 @@ window.APP_VERSION = '2026.08.23';
   function readFile(name, items) {
     var fm = floorMultiplier(name);
     var info = { file: String(name).replace(/^.*[\/\\]/, ''), mode: null, multiplier: fm.mult,
-                 levels: fm.levels, units: [], warn: [], control: null, unknownRooms: {} };
+                 levels: fm.levels, objects: fm.objects || [], units: [], warn: [], control: null, unknownRooms: {} };
 
     var txt = items.map(function (i) { return i.s; }).join(' ');
     if (!items.length || txt.replace(/\s/g, '').length < 20) {
@@ -805,11 +821,16 @@ window.APP_VERSION = '2026.08.23';
   function expand(files) {
     var out = [];
     files.forEach(function (f) {
+      var objs = (f.objects && f.objects.length) ? f.objects : [null];
+      var lvls = (f.levels && f.levels.length) ? f.levels : [null];
+      var perObj = Math.max(1, Math.round(f.multiplier / objs.length));
       f.units.forEach(function (u) {
-        for (var i = 0; i < f.multiplier; i++) {
-          out.push({ kind: u.kind, code: u.code, izby: u.izby, rooms: u.rooms, area: u.area,
-                     file: f.file, level: f.levels[i] != null ? f.levels[i] : null });
-        }
+        objs.forEach(function (o) {
+          for (var i = 0; i < perObj; i++) {
+            out.push({ kind: u.kind, code: u.code, izby: u.izby, rooms: u.rooms, area: u.area,
+                       file: f.file, so: o, level: lvls[i] != null ? lvls[i] : null });
+          }
+        });
       });
     });
     return out;
@@ -819,14 +840,18 @@ window.APP_VERSION = '2026.08.23';
   // (napr. 9.B.A na 9.NP aj 10.NP). Bez zlúčenia by sa počítala dvakrát a obe polovice
   // by vyšli ako malé byty. Zlučuje sa len naprieč výkresmi — opakované podlažie
   // v jednom výkrese (napr. „3+5NP") sú naopak dva rôzne byty.
+  // Zlučuje sa len v rámci JEDNÉHO objektu (podľa názvu výkresu): SO 6 2NP má chybne kódy
+  // bytov zo SO 5 (5.2.11, 5.2.12) — tie sa so SO 5 zlúčiť nesmú.
   function mergeMaisonettes(files) {
     var byCode = {}, codes = [];
     files.forEach(function (f) {
-      if (f.multiplier !== 1) return;
+      if ((f.levels || []).length > 1) return;          // opakované podlažie v jednom výkrese
+      var objKey = (f.objects || []).join('-');
       f.units.forEach(function (u) {
         if (!u.code || !/[.\-]/.test(u.code)) return;
-        if (!byCode[u.code]) { byCode[u.code] = []; codes.push(u.code); }
-        byCode[u.code].push({ f: f, u: u });
+        var key = objKey + '\u0001' + u.code;
+        if (!byCode[key]) { byCode[key] = []; codes.push(key); }
+        byCode[key].push({ f: f, u: u });
       });
     });
 
@@ -848,7 +873,7 @@ window.APP_VERSION = '2026.08.23';
         e.f.units = e.f.units.filter(function (x) { return x !== e.u; });
       });
       keep.u.mezonet = list.length;
-      merged.push({ code: code, parts: list.length, area: keep.u.area, izby: keep.u.izby,
+      merged.push({ code: list[0].u.code, so: (keep.f.objects || []).join('-') || null, parts: list.length, area: keep.u.area, izby: keep.u.izby,
                     files: list.map(function (e) { return e.f.file; }) });
     });
     return merged;
@@ -1042,6 +1067,9 @@ window.APP_VERSION = '2026.08.23';
   function floorMeta(filename) {
     var base = String(filename).replace(/^.*[\\/]/, '').replace(/\.[^.]*$/, '');
     var m = base.match(/(-?\d+)\s*(pp|np)/i);
+    // podkrovie („…_podkr", „PODKROVIE"): úroveň sa doplní z kódov (dominantCodeLevel),
+    // inak ide nad všetky NP (99)
+    if (!m && /podkr/i.test(base)) return { id: base, level: 999, label: 'Podkrovie', kind: 'NP', podkr: true };
     if (!m) return { id: base, level: 999, label: base, kind: '?' };
     var num = parseInt(m[1], 10);
     var kind = m[2].toLowerCase();
@@ -1057,6 +1085,56 @@ window.APP_VERSION = '2026.08.23';
     if (!m) return [];
     var sgn = m[2].toLowerCase() === 'pp' ? -1 : 1;
     return m[1].split('+').map(function (n) { return sgn * Math.abs(parseInt(n, 10)); });
+  }
+
+  // Stavebné objekty z názvu výkresu: „GR_SO.22.7-8-02.5_podkr" → ['7','8'] (jeden výkres
+  // platí pre SO 7 aj SO 8 — identické objekty, plochy sa počítajú za každý),
+  // „GR_SO.22.5-02.2_1np" → ['5'] (číslo výkresu „-02" nie je rozsah: 2 < 5). Inak [].
+  // Zrkadlo tools/pdf_legend.py objects_from_name.
+  function objectsFromName(filename) {
+    var base = String(filename || '').replace(/^.*[\\/]/, '');
+    var m = base.match(/SO[._\s-]?\d+\.(\d+)(?:-(\d+))?(?=[-_.\s]|$)/i);
+    if (!m) return [];
+    var a = parseInt(m[1], 10);
+    if (m[2] != null) {
+      var b = parseInt(m[2], 10);
+      if (b > a && b <= a + 9) { var out = []; for (var n = a; n <= b; n++) out.push(String(n)); return out; }
+    }
+    return [String(a)];
+  }
+
+  // Klon podlažia pre iný (identický) objekt: kódy so 3+ segmentmi a blok, ktoré začínajú
+  // číslom zdrojového objektu (7.B.1.04. / 7A.1.01 / blok 7A), sa prečíslujú (8.B.1.04. /
+  // 8A.1.01 / 8A). Kódy miestností v byte (1.01) ostávajú.
+  function cloneFloorForObject(fl, obj, fromObj) {
+    var re = new RegExp('^' + fromObj + '(?=[A-Z]?(\\.|$))');
+    function rc(code, minSeg) {
+      if (code == null || obj === fromObj) return code;
+      var s = String(code);
+      if (s.split('.').filter(function (x) { return x !== ''; }).length < minSeg) return s;
+      return s.replace(re, obj);
+    }
+    function cp(o) {
+      var c = {}; for (var k in o) c[k] = o[k];
+      c.so = obj;
+      if (c.code != null) c.code = rc(c.code, 3);
+      if (c.unitCode != null) c.unitCode = rc(c.unitCode, 3);
+      if (c.block != null) c.block = rc(c.block, 1);
+      return c;
+    }
+    var nf = {}; for (var k in fl) nf[k] = fl[k];
+    nf.so = obj;
+    nf.id = fl.id + (obj === fromObj ? '' : ' [SO ' + obj + ']');
+    nf.units = (fl.units || []).map(cp);
+    nf.rooms = (fl.rooms || []).map(cp);
+    var nb = {}, order = [];
+    (fl.blockOrder || []).forEach(function (b) {
+      var nbk = rc(b, 1); order.push(nbk);
+      var o = fl.blocks[b], c = {}; for (var k2 in o) c[k2] = o[k2];
+      c.roman = nbk; c.so = obj; nb[nbk] = c;
+    });
+    nf.blocks = nb; nf.blockOrder = order;
+    return nf;
   }
 
   // Klon podlažia na inú úroveň. Pri kombinovanom hárku (napr. 3+5+7NP) majú kódy
@@ -1407,6 +1485,18 @@ window.APP_VERSION = '2026.08.23';
     var floors = [];
     var levelMismatch = [];   // pv-n11: rozpiska tvrdí iné podlažie než kódy
     files.forEach(function (f) {
+      var objs = objectsFromName(f.name);
+      var before = floors.length;
+      buildFileFloors(f);
+      if (!objs.length) return;
+      // objekt(y) z názvu výkresu: každé podlažie dostane SO; výkres pre viac identických
+      // objektov (SO.22.7-8) sa naklonuje za každý objekt
+      var mine = floors.splice(before);
+      mine.forEach(function (fl) {
+        objs.forEach(function (o) { floors.push(cloneFloorForObject(fl, o, objs[0])); });
+      });
+    });
+    function buildFileFloors(f) {
       var fl = parseFloor(f.name, f.text);
       // Fantómové jednotky: za koncom legendy býva pomocná tabuľka (kľúč bytov / schéma šácht) —
       // bare kódy „APARTMÁN" bez plochy a bez miestností, často duplikát reálnej jednotky.
@@ -1422,7 +1512,7 @@ window.APP_VERSION = '2026.08.23';
           var cl0 = dominantCodeLevel(fl);
           if (cl0 != null) {
             fl.level = cl0;
-            fl.label = cl0 < 0 ? (Math.abs(cl0) + '. PP') : (cl0 + '. NP');
+            if (fl.label !== 'Podkrovie') fl.label = cl0 < 0 ? (Math.abs(cl0) + '. PP') : (cl0 + '. NP');
             fl.units.forEach(function (u) { u.floorLevel = fl.level; u.floor = fl.label; });
             fl.rooms.forEach(function (r) { r.floorLevel = fl.level; r.floor = fl.label; });
           }
@@ -1444,6 +1534,16 @@ window.APP_VERSION = '2026.08.23';
         var label = level < 0 ? (Math.abs(level) + '. PP') : (level + '. NP');
         floors.push(cloneFloorAt(fl, level, label, fromLevel));
       });
+    }
+    // podkrovie bez úrovne z kódov ide nad najvyššie NP
+    var maxNp = 0;
+    floors.forEach(function (fl) { if (fl.level !== 999 && fl.level > maxNp) maxNp = fl.level; });
+    floors.forEach(function (fl) {
+      if (fl.level === 999 && fl.label === 'Podkrovie') {
+        fl.level = maxNp + 1;
+        fl.units.forEach(function (u) { u.floorLevel = fl.level; });
+        fl.rooms.forEach(function (r) { r.floorLevel = fl.level; });
+      }
     });
     floors.sort(function (a, b) { return a.level - b.level; });
 
@@ -1802,11 +1902,118 @@ window.APP_VERSION = '2026.08.23';
     return { floorChecks: floorChecks, spaciKut: spaciKut, unknown: unknown, noArea: noArea, zeroIzby: zeroIzby, badFormat: badFormat };
   }
 
+  /* ---------- POVRCHY: podklad na tender podláh a obkladov ---------- */
+  // Pravidlá (Roman): nič nevynechať okrem VSYP; zeleň (ZEL.) do zošita nedávať; v exporte
+  // len to, čo je zarátané. Materiál podlahy sa berie CELÝ ako v legende („GRES, NAT.1" je
+  // jeden materiál — schodisko + podesta), nedelí sa podľa čiarky.
+  // Obklad (steny KER.O.): legenda nemá obvod miestnosti → obvod je ODHAD z plochy pri
+  // pomere strán 1:pomer (presne len z geometrie výkresu, DXF), × výška obkladu, − dvere.
+  var POVRCHY_DEFAULTS = { obkladVyska: 2.0, dvereSirka: 0.8, dvereVyska: 2.0, pomerStran: 1.5 };
+
+  function povrchMat(raw) {
+    var t = norm(raw).replace(/\s*,\s*/g, ', ').toUpperCase();
+    return (t === '' || t === '-' || t === '–') ? '' : t;
+  }
+  function povrchVylucenie(name, mat) {
+    var dm = deburr(mat), dn = deburr(name);
+    if (/^VSYP/.test(dm) || /^VSYP/.test(dn)) return 'VSYP';
+    if (/^ZEL\b|^ZEL\.|^ZELEN/.test(dm) || /^ZELEN/.test(dn)) return 'ZEL.';
+    return null;
+  }
+  // čitateľný typ miestnosti (s diakritikou): názov bez kódov v texte a bez úvodzoviek
+  function povrchTyp(name) {
+    return norm(String(name || '').replace(/"[^"]*"/g, ' ')
+      .replace(/\b[A-Z0-9]+\.[A-Z0-9.\-]+\b/gi, ' ')).toUpperCase();
+  }
+  function r2p(x) { var v = +x || 0, sg = v < 0 ? -1 : 1; return sg * Math.round(Math.abs(v) * 100 + 1e-6) / 100; }
+
+  function computePovrchy(model, opts) {
+    var o = {}; for (var k in POVRCHY_DEFAULTS) o[k] = POVRCHY_DEFAULTS[k];
+    if (opts) for (var k2 in opts) if (opts[k2] != null && isFinite(+opts[k2])) o[k2] = +opts[k2];
+    var detail = [], excluded = [], soSet = {}, noMat = 0;
+    var floorTot = {};   // so|floor -> {interior, celkova}
+    (model.floors || []).forEach(function (fl) {
+      var so = fl.so || null;
+      (fl.rooms || []).forEach(function (r) {
+        var area = r2p((r.interior || 0) + (r.exterior || 0));
+        var mat = povrchMat(r.podlaha);
+        var objKey = r.so || so || r.block || '—';
+        var fk = objKey + '|' + fl.label;
+        var ft = floorTot[fk] || (floorTot[fk] = { so: objKey, floor: fl.label, level: fl.level,
+          interior: 0, exterior: 0, vsyp: 0, zel: 0, celkova: fl.floorTotalCsv, bezMat: 0 });
+        var exc = povrchVylucenie(r.name, mat);
+        if (exc) {
+          excluded.push({ so: objKey, floor: fl.label, code: r.code, name: r.name, mat: mat, area: area, dovod: exc });
+          if (exc === 'VSYP') ft.vsyp = r2p(ft.vsyp + area); else ft.zel = r2p(ft.zel + area);
+          return;
+        }
+        if (!area) return;
+        soSet[objKey] = 1;
+        if (!mat) { noMat++; ft.bezMat = r2p(ft.bezMat + area); }
+        if (r.interior) ft.interior = r2p(ft.interior + r2p(r.interior));
+        if (r.exterior) ft.exterior = r2p(ft.exterior + r2p(r.exterior));
+        var steny = povrchMat(r.steny);
+        var obklad = /KER\.?\s*O\b|KER\.O/.test(deburr(steny));
+        var obvod = null, obkladM2 = 0;
+        if (obklad && area > 0) {
+          var a = Math.sqrt(area / o.pomerStran);
+          obvod = r2p(2 * (a + o.pomerStran * a));
+          obkladM2 = r2p(Math.max(0, obvod * o.obkladVyska - o.dvereSirka * Math.min(o.dvereVyska, o.obkladVyska)));
+        }
+        detail.push({
+          so: objKey, floor: fl.label, level: fl.level, block: r.block || '', unit: r.unitCode || '',
+          code: r.code || '', name: norm(r.name), typKey: roomKey(r.name) || deburr(r.name),
+          typ: povrchTyp(r.name),
+          cat: r.cat, area: area, exterior: !!r.exterior && !r.interior,
+          mat: mat || '(bez materiálu)', steny: steny, obklad: obklad, obvodOdhad: obvod, obkladM2: obkladM2
+        });
+      });
+    });
+    var soList = Object.keys(soSet).sort(function (a, b) {
+      var na = parseFloat(a), nb = parseFloat(b);
+      return (isNaN(na) || isNaN(nb)) ? (a < b ? -1 : a > b ? 1 : 0) : na - nb || (a < b ? -1 : 1);
+    });
+    function pivot(keyFn) {
+      var map = {}, order = [];
+      detail.forEach(function (d) {
+        var key = keyFn(d);
+        var e = map[key.id];
+        if (!e) { e = map[key.id] = { key: key, so: {}, total: 0, count: 0 }; order.push(key.id); }
+        e.so[d.so] = r2p((e.so[d.so] || 0) + d.area);
+        e.total = r2p(e.total + d.area); e.count++;
+      });
+      return order.map(function (id) { return map[id]; }).sort(function (a, b) { return b.total - a.total; });
+    }
+    var byMat = pivot(function (d) { return { id: d.mat, mat: d.mat }; });
+    var byTyp = pivot(function (d) { return { id: d.typ + '\u0001' + d.mat, typ: d.typ, mat: d.mat }; })
+      .sort(function (a, b) { return a.key.typ < b.key.typ ? -1 : a.key.typ > b.key.typ ? 1 : b.total - a.total; });
+    var obk = { so: {}, total: 0, count: 0 };
+    detail.forEach(function (d) {
+      if (!d.obklad) return;
+      obk.so[d.so] = r2p((obk.so[d.so] || 0) + d.obkladM2); obk.total = r2p(obk.total + d.obkladM2); obk.count++;
+    });
+    var soTot = {}; soList.forEach(function (x) { soTot[x] = 0; });
+    var total = 0;
+    detail.forEach(function (d) { soTot[d.so] = r2p((soTot[d.so] || 0) + d.area); total = r2p(total + d.area); });
+    var kontrola = Object.keys(floorTot).map(function (k) { return floorTot[k]; }).filter(function (f) {
+      return f.interior || f.exterior || f.vsyp || f.zel;
+    }).map(function (f) {
+      f.diff = (f.celkova == null) ? null : r2p(f.interior - f.celkova);
+      f.ok = (f.diff == null) ? null : Math.abs(f.diff) <= 0.05;
+      return f;
+    }).sort(function (a, b) {
+      return (a.so < b.so ? -1 : a.so > b.so ? 1 : 0) || a.level - b.level;
+    });
+    return { opts: o, soList: soList, detail: detail, excluded: excluded, byMat: byMat, byTyp: byTyp,
+             obklad: obk, soTot: soTot, total: total, kontrola: kontrola, noMat: noMat };
+  }
+
   return {
     parseNum: parseNum, norm: norm, deburr: deburr,
     parseCSVText: parseCSVText, floorMeta: floorMeta,
     detectUnitType: detectUnitType, roomCategory: roomCategory,
     parseFloor: parseFloor, buildModel: buildModel, computeBilancie: computeBilancie,
+    computePovrchy: computePovrchy, objectsFromName: objectsFromName, POVRCHY_DEFAULTS: POVRCHY_DEFAULTS,
     setCategoryOverrides: setCategoryOverrides
   };
 });
@@ -1972,8 +2179,11 @@ window.APP_VERSION = '2026.08.23';
     return helper;
   }
 
-  function helperRun(endpoint, u8){
-    return fetch('api/'+endpoint, {method:'POST', body:u8})
+  function helperRun(endpoint, u8, name){
+    var opt={method:'POST', body:u8};
+    // názov výkresu nesie objekt (GR_SO.22.7-8 = SO 7 aj SO 8) a podlažie (…_podkr)
+    if(name) opt.headers={'X-Filename':encodeURIComponent(name)};
+    return fetch('api/'+endpoint, opt)
       .then(function(r){ return r.json(); })
       .then(function(j){ if(!j.ok) throw new Error(j.error||'nástroj zlyhal'); return j; });
   }
@@ -2066,10 +2276,12 @@ window.APP_VERSION = '2026.08.23';
             // Bez pomocníka sa preskočí a ostane len flatmix (ako predtým).
             return helperReady().then(function(h){
               if(!h || !h.legend) return null;
-              return helperRun('legend', u8).then(function(j){
+              return helperRun('legend', u8, f.name).then(function(j){
                 if(j && j.csv){
-                  // podlažie z ROZPISKY má prednosť pred názvom súboru (názov býva zlý)
-                  var nm=(j.meta && j.meta.floorName) ? j.meta.floorName : f.name.replace(/\.pdf$/i,'');
+                  // podlažie z ROZPISKY má prednosť pred názvom súboru (názov býva zlý);
+                  // názov súboru ostáva za ním — nesie objekt (SO.22.7-8) a „podkr"
+                  var base=f.name.replace(/\.pdf$/i,'');
+                  var nm=(j.meta && j.meta.floorName) ? (j.meta.floorName+' '+base) : base;
                   out.push({name:nm+'.csv', text:j.csv});
                 }
                 if(j && j.meta && j.meta.parcels) lastRozpiska=j.meta;   // parcely pre kataster
@@ -2101,7 +2313,7 @@ window.APP_VERSION = '2026.08.23';
           seq=seq.then(function(){
             setStatus('Čítam obrázok '+(ix+1)+' z '+imgFiles.length+' (OCR): '+f.name);
             return readBytes(f).then(function(u8){
-              return helperRun('legend', u8).then(function(j){
+              return helperRun('legend', u8, f.name).then(function(j){
                 if(j && j.csv){
                   var nm=(j.meta && j.meta.floorName) ? j.meta.floorName : f.name.replace(/\.[^.]+$/,'');
                   out.push({name:nm+'.csv', text:j.csv});
@@ -2163,7 +2375,7 @@ window.APP_VERSION = '2026.08.23';
   var CSV_TABS=[
     ['bilancie','Bilancie'],['podlazia','Po podlažiach'],['podlaziaso','Podlažia × SO'],
     ['jednotky','Zoznam jednotiek'],['dispozicie','Dispozície'],['typy','Typy miestností'],
-    ['povrchy','Výkaz povrchov'],['normy','Normy'],['kontrola','Kontrola']
+    ['povrchy','Povrchy'],['normy','Normy'],['kontrola','Kontrola']
   ];
   // Flatmix funguje z CSV aj z PDF, ostatné záložky potrebujú CSV legendu.
   // Záložky sú vždy všetky — keď chýba CSV, dá sa to len vysvetliť. Skrývať ich
@@ -2330,15 +2542,118 @@ window.APP_VERSION = '2026.08.23';
         makeTable(['Typ','Počet','% jednotiek','Plocha m²','% predajnej','Priemer m²','Min m²','Max m²'],mixRows));
       return eff+mix;
     }
-    if(key==='povrchy'){
-      function surf(title,note,arr){ var rows=arr.map(function(x){return [x.mat,x.count,fmt(x.area)];}); return card(title,note,makeTable(['Materiál','Počet miestností','Plocha m² (odhad)'],rows)); }
-      return surf('Podlahy','Plocha podláh podľa materiálu (z podlahovej plochy miestností).',st.surfaces.podlaha)
-        + surf('Steny','⚠ Plocha stien je odhadnutá z podlahovej plochy miestnosti (legenda neobsahuje výmery stien).',st.surfaces.steny)
-        + surf('Stropy / podhľady','⚠ Plocha stropov je odhadnutá z podlahovej plochy miestnosti.',st.surfaces.strop);
-    }
+    if(key==='povrchy'){ return renderPovrchy(); }
     if(key==='normy'){ return renderNorms(); }
     if(key==='kontrola'){ return renderKontrola(); }
     return '';
+  }
+
+
+  /* ---------- POVRCHY: podklad na tender podláh a obkladov ---------- */
+  var POV_KEY='vi_povrchy_opts_v1';
+  function povOpts(){ try{ return JSON.parse(localStorage.getItem(POV_KEY)||'{}')||{}; }catch(e){ return {}; } }
+  function povModel(){ return Core.computePovrchy(model, povOpts()); }
+  function soLbl(x){ return (x==null||x==='—')?'(bez SO)':('SO '+x); }
+  function renderPovrchy(){
+    var P=povModel(), so=P.soList, O=P.opts;
+    if(!P.detail.length) return card('Povrchy','', '<div class="warnbox">Legenda neobsahuje materiály podláh (stĺpec PODLAHA).</div>');
+    var vsyp=P.excluded.filter(function(x){return x.dovod==='VSYP';}).reduce(function(a,x){return a+x.area;},0);
+    var zel=P.excluded.filter(function(x){return x.dovod==='ZEL.';}).reduce(function(a,x){return a+x.area;},0);
+    var kp='<div class="kpis">'+kpi(fmt(P.total),'Podlahy spolu m²')+kpi(fmt(P.obklad.total),'Obklad KER.O. m² (odhad)')+
+      kpi(P.detail.length,'Miestností')+kpi(so.length,'Objektov')+kpi(fmt(vsyp),'Vynechané VSYP m²')+kpi(fmt(zel),'Mimo zošita ZEL. m²')+'</div>';
+    var tools='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:12px">'+
+      '<label>Výška obkladu m<br><input data-povopt="obkladVyska" type="number" step="0.05" value="'+O.obkladVyska+'" style="width:80px"></label>'+
+      '<label>Šírka dverí m<br><input data-povopt="dvereSirka" type="number" step="0.05" value="'+O.dvereSirka+'" style="width:80px"></label>'+
+      '<label>Pomer strán miestnosti 1 :<br><input data-povopt="pomerStran" type="number" step="0.1" value="'+O.pomerStran+'" style="width:80px"></label>'+
+      '<button class="btn" type="button" data-povxlsx>⤓ Excel povrchov (.xlsx)</button></div>';
+    var hdrSo=so.map(soLbl);
+    var mrows=P.byMat.map(function(e){ return [e.key.mat].concat(so.map(function(x){return fmt(e.so[x]||0);})).concat([fmt(e.total)]); });
+    var mfoot=['PODLAHY SPOLU'].concat(so.map(function(x){return fmt(P.soTot[x]||0);})).concat([fmt(P.total)]);
+    var orow=[['KER.O. obklad (odhad)'].concat(so.map(function(x){return fmt(P.obklad.so[x]||0);})).concat([fmt(P.obklad.total)])];
+    var trows=P.byTyp.map(function(e){ return [e.key.typ,e.key.mat,e.count].concat(so.map(function(x){return fmt(e.so[x]||0);})).concat([fmt(e.total)]); });
+    var krows=P.kontrola.map(function(k){
+      var st=k.ok===null?'—':(k.ok?'OK':'NESEDÍ');
+      return [soLbl(k.so),k.floor,fmt(k.interior),k.celkova==null?'—':fmt(k.celkova),k.diff==null?'—':fmt(k.diff),fmt(k.exterior),fmt(k.vsyp),fmt(k.zel),raw('<b style="color:'+(k.ok===false?'#c92a2a':'inherit')+'">'+st+'</b>')];
+    });
+    return card('Povrchy — podklad na tender podláh a obkladov',
+        'Z legendy miestností (stĺpce PODLAHA / STENY). Zarátané je všetko okrem VSYP; zeleň (ZEL.) do zošita nejde. Materiál sa berie celý ako vo výkrese („GRES, NAT.1" je jeden materiál).',
+        kp+tools)
+      + card('Podlahy podľa materiálu','m² podľa objektov. GRES M. = mrazuvzdorná dlažba (balkóny, terasy, loggie, závetria).',
+        makeTable(['Materiál podlahy'].concat(hdrSo).concat(['Spolu m²']),mrows,mfoot)
+        + '<div style="margin-top:8px"></div>'+makeTable(['Obklad stien'].concat(hdrSo).concat(['Spolu m²']),orow))
+      + card('Obklad KER.O. — odhad','⚠ Legenda nemá obvod miestnosti. Obvod je odhad z plochy pri pomere strán 1:'+O.pomerStran+', × výška '+O.obkladVyska+' m, − 1 dvere '+O.dvereSirka+' m. Presná výmera len z geometrie výkresu (DXF).','')
+      + card('Podľa typu miestnosti × materiál','',makeTable(['Typ miestnosti','Materiál','Počet'].concat(hdrSo).concat(['Spolu m²']),trows))
+      + card('Kontrola proti výkresu','Interiér zarátaných miestností vs. PODL. PLOCHA CELKOVÁ z legendy (po objekte a podlaží). Exteriér a vynechané plochy sú v CELKOVEJ mimo.',
+        makeTable(['Objekt','Podlažie','Interiér m²','CELKOVÁ výkres m²','Rozdiel','Exteriér m²','VSYP m²','ZEL. m²','Stav'],krows))
+      + (P.noMat?card('','','<div class="warnbox">'+P.noMat+' miestností nemá v legende materiál podlahy — v zošite sú ako „(bez materiálu)“.</div>'):'');
+  }
+  document.addEventListener('change',function(e){
+    var t=e.target; if(!t||!t.getAttribute) return;
+    var k=t.getAttribute('data-povopt'); if(!k) return;
+    var o=povOpts(); var v=parseFloat(String(t.value).replace(',','.'));
+    if(isFinite(v)&&v>0) o[k]=v; else delete o[k];
+    try{ localStorage.setItem(POV_KEY,JSON.stringify(o)); }catch(err){}
+    var sec=document.getElementById('sec-povrchy'); if(sec){ sec.innerHTML=renderPovrchy(); enhancePresentationUI(sec); }
+  });
+  document.addEventListener('click',function(e){
+    var b=e.target&&e.target.closest&&e.target.closest('[data-povxlsx]'); if(!b||!model) return;
+    downloadXlsx(buildXlsx(povrchySheets(povModel())),'Povrchy.xlsx');
+  });
+
+  // Zošit povrchov: súčty sú SUMIFS z hárku Detail (prepočítajú sa pri úprave Detailu).
+  function povrchySheets(P){
+    var so=P.soList.map(soLbl), nS=so.length;
+    var det=[['Objekt','Podlažie','Blok','Jednotka','Kód','Miestnosť','Typ miestnosti','Materiál podlahy','Plocha m²','Poloha','Steny','Obklad KER.O.','Obvod odhad m','Obklad m² (odhad)']];
+    P.detail.forEach(function(d){
+      det.push([soLbl(d.so),d.floor,d.block,d.unit,d.code,d.name,d.typ,d.mat,N(d.area),d.exterior?'exteriér':'interiér',d.steny,d.obklad?'áno':'',d.obvodOdhad==null?'':N(d.obvodOdhad),d.obklad?N(d.obkladM2):'']);
+    });
+    var last=det.length;
+    function rng(c){ return 'Detail!$'+c+'$2:$'+c+'$'+last; }
+    function C(i){ return colL(i); }
+    // Podľa materiálu
+    var mat=[['Materiál podlahy'].concat(so).concat(['Spolu m²'])];
+    P.byMat.forEach(function(e,i){
+      var r=i+2, row=[e.key.mat];
+      P.soList.forEach(function(x,j){ row.push({f:'SUMIFS('+rng('I')+','+rng('H')+',$A'+r+','+rng('A')+','+C(j+1)+'$1)', v:e.so[x]||0}); });
+      row.push({f:'SUM(B'+r+':'+C(nS)+r+')', v:e.total}); mat.push(row);
+    });
+    var lr=mat.length, tot=['PODLAHY SPOLU'];
+    for(var j=1;j<=nS+1;j++) tot.push({f:'SUM('+C(j)+'2:'+C(j)+lr+')', v:j<=nS?(P.soTot[P.soList[j-1]]||0):P.total});
+    mat.push(tot); mat.push([]);
+    var ob=['KER.O. obklad m² (odhad)'], obr=mat.length+1;
+    P.soList.forEach(function(x,j){ ob.push({f:'SUMIFS('+rng('N')+','+rng('L')+',"áno",'+rng('A')+','+C(j+1)+'$1)', v:P.obklad.so[x]||0}); });
+    ob.push({f:'SUM(B'+obr+':'+C(nS)+obr+')', v:P.obklad.total}); mat.push(ob);
+    // Podľa typu miestnosti
+    var typ=[['Typ miestnosti','Materiál podlahy','Počet'].concat(so).concat(['Spolu m²'])];
+    P.byTyp.forEach(function(e,i){
+      var r=i+2, row=[e.key.typ,e.key.mat,{f:'COUNTIFS('+rng('G')+',$A'+r+','+rng('H')+',$B'+r+')', v:e.count}];
+      P.soList.forEach(function(x,j){ row.push({f:'SUMIFS('+rng('I')+','+rng('G')+',$A'+r+','+rng('H')+',$B'+r+','+rng('A')+','+C(j+3)+'$1)', v:e.so[x]||0}); });
+      row.push({f:'SUM(D'+r+':'+C(nS+2)+r+')', v:e.total}); typ.push(row);
+    });
+    // Kontrola
+    var kon=[['Objekt','Podlažie','Interiér m² (z Detailu)','CELKOVÁ výkres m²','Rozdiel','Stav','Exteriér m²','VSYP m² (vynechané)','ZEL. m² (mimo zošita)']];
+    P.kontrola.forEach(function(k,i){
+      var r=i+2;
+      kon.push([soLbl(k.so),k.floor,
+        {f:'SUMIFS('+rng('I')+','+rng('A')+',$A'+r+','+rng('B')+',$B'+r+','+rng('J')+',"interiér")', v:k.interior},
+        k.celkova==null?'':N(k.celkova),
+        k.celkova==null?'':{f:'ROUND(C'+r+'-D'+r+',2)', v:k.diff},
+        k.celkova==null?'—':{f:'IF(ABS(E'+r+')<=0.05,"OK","NESEDÍ")', v:null},
+        {f:'SUMIFS('+rng('I')+','+rng('A')+',$A'+r+','+rng('B')+',$B'+r+','+rng('J')+',"exteriér")', v:k.exterior},
+        N(k.vsyp),N(k.zel)]);
+    });
+    var O=P.opts;
+    var pred=[['Predpoklady',''],
+      ['Zdroj','Legenda miestností z výkresov (stĺpce PODLAHA, STENY), čítaná appkou Vi-Analyza'],
+      ['Zarátané','Všetky miestnosti s plochou okrem VSYP; zeleň (ZEL.) do zošita nejde'],
+      ['Materiál','Celý reťazec z legendy („GRES, NAT.1" = jeden materiál)'],
+      ['Opakované objekty','Výkres pre viac objektov (napr. SO.22.7-8) je zarátaný za každý objekt'],
+      ['Obklad','Steny KER.O.; obvod = ODHAD z plochy (legenda obvod nemá), presne len z DXF'],
+      ['Výška obkladu m',O.obkladVyska],['Šírka dverí m (1 dvere / miestnosť)',O.dvereSirka],
+      ['Výška dverí m',O.dvereVyska],['Pomer strán miestnosti 1 :',O.pomerStran],
+      ['Súčty','Hárky Podľa materiálu / typu / Kontrola sú SUMIFS z hárku Detail']];
+    return [{name:'Podľa materiálu',rows:mat},{name:'Podľa typu miestnosti',rows:typ},{name:'Detail',rows:det},
+            {name:'Kontrola',rows:kon},{name:'Predpoklady',rows:pred}];
   }
 
   /* ---------- Flatmix ---------- */
@@ -3600,10 +3915,12 @@ window.APP_VERSION = '2026.08.23';
       .concat([['Apartmány'].concat(dk.map(function(k){return st.dispozicie.apartman[k]||0;})).concat([Object.keys(st.dispozicie.apartman).reduce(function(a,k){return a+st.dispozicie.apartman[k];},0)])])});
     sheets.push({name:'Typy miestností',rows:[['Názov','Kategória','Počet','Interiér m²','Exteriér m²']]
       .concat(st.roomTypeRows.map(function(r){return [r.name,r.cat,r.count,N(r.interior),N(r.exterior)];}))});
-    sheets.push({name:'Výkaz povrchov',rows:[['Časť','Materiál','Počet miestností','Plocha m² (odhad)']]
-      .concat(st.surfaces.podlaha.map(function(x){return ['Podlaha',x.mat,x.count,N(x.area)];}))
-      .concat(st.surfaces.steny.map(function(x){return ['Steny (odhad)',x.mat,x.count,N(x.area)];}))
-      .concat(st.surfaces.strop.map(function(x){return ['Strop (odhad)',x.mat,x.count,N(x.area)];}))});
+    // Povrchy v hlavnom exporte len ako hodnoty (plný zošit so SUMIFS = tlačidlo v záložke Povrchy)
+    var PV=povModel();
+    sheets.push({name:'Povrchy',rows:[['Materiál podlahy'].concat(PV.soList.map(soLbl)).concat(['Spolu m²'])]
+      .concat(PV.byMat.map(function(e){return [e.key.mat].concat(PV.soList.map(function(x){return N(e.so[x]||0);})).concat([N(e.total)]);}))
+      .concat([['PODLAHY SPOLU'].concat(PV.soList.map(function(x){return N(PV.soTot[x]||0);})).concat([N(PV.total)])])
+      .concat([[],['KER.O. obklad m² (odhad)'].concat(PV.soList.map(function(x){return N(PV.obklad.so[x]||0);})).concat([N(PV.obklad.total)])])});
     var kr=[['Podlažie / blok','Počítané m²','CSV m²','Stav']];
     model.checks.floorChecks.forEach(function(fc){
       kr.push([fc.label,N(fc.sumGroups),N(fc.csv),fc.ok===null?'?':(fc.ok?'OK':'NESEDÍ')]);

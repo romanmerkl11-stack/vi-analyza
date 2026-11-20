@@ -1,0 +1,25 @@
+"  LEGENDA MIESTNOSTI";;"PLOCHA / M2";;"UPRAVY POVRCHOV";;
+"C.M.";"NAZOV MIESTNOSTI";"INTERIER";"EXTERIER";"PODLAHA";"STENY";"STROP / PODHLAD"
+;"  BLOK ""5"" - SO 7-8";;;;;
+"5.1.01";"  SCHODISKO";"18,40";"";"GRES, NAT.1";"OMIET.";""
+"5.1.02";"  SPOLOČNÁ CHODBA";"22,10";"";"KOBEREC";"OMIET.";""
+;"  BLOK ""9"" - SO 7-8";;;;;
+"9.B.-1.01";"  VÝŤAHOVÁ ŠACHTA";"4,00";"";"HI.N.";"-";""
+;"  BLOK ""5"" - SO 7-8";;;;;
+"5.1.03";"  VSYP";"";"3,00";"VSYP";"-";""
+;"  PODLAHOVA PLOCHA";"44,50";;;;
+;"  BLOK ""7"" - SO 7-8";;;;;
+"7.B.1.04.";"  BYT 2-IZB.";;;;;
+"1.01";"  PREDSIEŇ";"5,20";"";"LAMINO";"OMIET.";""
+"1.02";"  KÚPEĽŇA";"4,30";"";"KER.DL.";"KER.O.";""
+"1.03";"  IZBA";"15,00";"";"LAMINO";"OMIET.";""
+"1.04";"  BALKÓN";"";"6,00";"GRES M.";"-";""
+;"  PODLAHOVA PLOCHA";"24,50";;;;
+"7.B.1.05.";"  BYT 1-IZB.";;;;;
+"1.01";"  IZBA S KK";"20,00";"";"LAMINO";"OMIET.";""
+"1.02";"  WC";"1,50";"";"KER.DL.";"KER.O.";""
+"1.03";"  ZÁVETRIE";"";"2,00";"GRES M.";"-";""
+;"  PODLAHOVA PLOCHA";"21,50";;;;
+;"  BLOK ""7A"" - SO 7-8";;;;;
+"7A.1.01";"  SKLAD";"3,25";"";"BET.DL.";"-";""
+;"  PODL. PLOCHA CELKOVA";"93,75";;;;

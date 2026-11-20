@@ -278,7 +278,309 @@ def extract_meta(text):
     return meta
 
 
+# ---- POLOHOVÉ čítanie legendy (stĺpce „Č.M.", riadky podľa polohy znakov) -------
+# get_text('text') vracia text v poradí streamu. V exportoch z DWG (Gerlach II) majú slová
+# jedného riadku legendy rozdielny `top` (0,6–2 pt) a znaky susedných riadkov sa premiešajú
+# („3.04" / „3.05" → „3", „.", „0", „4"). Preto sa legenda skladá z POLOHY znakov:
+#   1) slová zo znakov (len vodorovné): riadok = round(top*2)/2, nové slovo pri medzere
+#      > max(1, 0,25·veľkosť písma),
+#   2) stĺpec legendy = každé slovo „Č.M."; x-rozsah [x−8, ďalšie Č.M.−8) alebo +276 pt
+#      (kód začína ~4 pt vľavo od hlavičky). Z hlavičky x pozície INTERIÉR / PODLAHA / STENY,
+#   3) kotvy riadkov = kód alebo PODLAHOVÁ / PODL. v ľavých 25 pt stĺpca; stĺpec končí pri
+#      medzere medzi kotvami > 25 pt (NIE pri CELKOVÁ — stĺpec pokračuje pod CELKOVOU iného),
+#   4) každé slovo stĺpca patrí najbližšej kotve, ak |Δtop| < 5,5 pt.
+# Overené na Gerlach II: 259/259 bytov sedí s PODLAHOVÁ PLOCHA, 20/20 podlaží s CELKOVÁ.
+
+POS_CODE_RE = re.compile(r'^\d+[A-Z]?\.(?:[A-Z]\.)?(?:-?\d+\.)?\d+\.?$')
+AREA_TOK_RE = re.compile(r'^\d[\d\s ]*,\d{2}$')
+UNIT_CODE_RE = re.compile(r'^\d+\.\d+$')          # miestnosť v byte (1.01); inak spoločný priestor
+
+
+def _page_words(page):
+    """Slová zo znakov strany: [{'s','x0','x1','top','size'}] (len vodorovný text)."""
+    chars = []
+    raw = page.get_text('rawdict')
+    for b in raw.get('blocks', []):
+        for ln in b.get('lines', []):
+            d = ln.get('dir', (1, 0))
+            if abs(d[0] - 1) > 1e-3 or abs(d[1]) > 1e-3:
+                continue                                    # otočený text (kóty, popisy) mimo legendy
+            for sp in ln.get('spans', []):
+                size = sp.get('size') or 8.0
+                for ch in sp.get('chars', []):
+                    c = ch.get('c', '')
+                    x0, y0, x1, _y1 = ch['bbox']
+                    chars.append((round(y0 * 2) / 2, x0, x1, c, size))
+    chars.sort(key=lambda t: (t[0], t[1]))
+    words, cur = [], None
+    for top, x0, x1, c, size in chars:
+        if c.isspace():
+            cur = None
+            continue
+        if (cur is not None and cur['top'] == top
+                and x0 - cur['x1'] < max(1.0, 0.25 * size) and x0 > cur['x0'] - 0.5):
+            cur['s'] += c
+            cur['x1'] = max(cur['x1'], x1)
+        else:
+            cur = {'s': c, 'x0': x0, 'x1': x1, 'top': top, 'size': size}
+            words.append(cur)
+    return words
+
+
+def _is_anchor(w):
+    d = deburr(w['s'])
+    return bool(POS_CODE_RE.match(w['s'])) or d in ('PODLAHOVA', 'PODL.')
+
+
+def legend_rows_positional(page):
+    """Riadky legendy z polohy znakov. Vráti list stĺpcov (každý list riadkov) alebo None.
+    Riadok: {'code','name','area','podlaha','steny','strop','kind'} kde kind ∈
+    'room' | 'unit' | 'sub' (PODLAHOVÁ PLOCHA) | 'total' (PODL. PLOCHA CELKOVÁ)."""
+    words = _page_words(page)
+    heads = sorted([w for w in words if deburr(w['s']) == 'C.M.'], key=lambda w: (w['x0'], w['top']))
+    if not heads:
+        return None
+    cols = []
+    for k, h in enumerate(heads):
+        x_lo = h['x0'] - 8
+        nxt = [o['x0'] for o in heads if o['x0'] > h['x0'] + 20]
+        x_hi = (min(nxt) - 8) if nxt else h['x0'] + 276
+        # dva Č.M. nad sebou v rovnakom stĺpci (pokračovanie legendy nižšie na hárku) → každý
+        # má vlastný y-začiatok; ďalší Č.M. pod ním ukončí aktuálny
+        below = [o['top'] for o in heads if abs(o['x0'] - h['x0']) <= 20 and o['top'] > h['top'] + 5]
+        y_stop = min(below) - 2 if below else float('inf')
+        cw = [w for w in words if x_lo <= w['x0'] < x_hi and h['top'] - 30 <= w['top'] < y_stop]
+        hdr = [w for w in cw if abs(w['top'] - h['top']) <= 15]
+
+        def hx(*keys):
+            xs = [w['x0'] for w in hdr if any(deburr(w['s']).startswith(k) for k in keys)]
+            return min(xs) if xs else None
+        ax = hx('INTERIER', 'PLOCHA')
+        px = hx('PODLAHA')
+        sx = hx('STENY', 'STENA')
+        tx = hx('STROP', 'PODHLAD')
+        anchors = sorted([w for w in cw if w['top'] > h['top'] + 2 and w['x0'] < x_lo + 8 + 25
+                          and _is_anchor(w)], key=lambda w: w['top'])
+        kept, last = [], h['top']
+        for a in anchors:
+            if a['top'] - last > 25 + (10 if not kept else 0):
+                break
+            kept.append(a)
+            last = a['top']
+        if not kept:
+            continue
+        y_end = kept[-1]['top'] + 5.5
+        groups = [[] for _ in kept]
+        for w in cw:
+            if w['top'] <= h['top'] + 2 or w['top'] > y_end:
+                continue
+            best, bd = None, 5.5
+            for i, a in enumerate(kept):
+                dd = abs(w['top'] - a['top'])
+                if dd < bd:
+                    best, bd = i, dd
+            if best is not None:
+                groups[best].append(w)
+        rows = []
+        for a, g in zip(kept, groups):
+            g.sort(key=lambda w: w['x0'])
+            rows.append(_pos_row(a, g, ax, px, sx, tx))
+        cols.append({'x': h['x0'], 'top': h['top'], 'rows': rows})
+    if not cols:
+        return None
+    cols.sort(key=lambda c: (c['x'], c['top']))
+    return [c['rows'] for c in cols]
+
+
+def _pos_row(anchor, g, ax, px, sx, tx):
+    da = deburr(anchor['s'])
+    text = ' '.join(w['s'] for w in g)
+    dtext = deburr(text)
+    area = None
+    a_lo = (ax - 15) if ax is not None else -1e9
+    a_hi = (px - 3) if px is not None else 1e9
+    for w in g:
+        if AREA_TOK_RE.match(w['s']) and a_lo <= w['x0'] < a_hi:
+            area = parse_area(w['s'])
+    if da in ('PODLAHOVA', 'PODL.'):
+        return {'code': '', 'name': text, 'area': area, 'podlaha': '', 'steny': '', 'strop': '',
+                'kind': 'total' if 'CELKOV' in dtext else 'sub'}
+
+    def span(lo, hi):
+        return ' '.join(w['s'] for w in g if w is not anchor
+                        and (lo is None or w['x0'] >= lo - 3) and (hi is None or w['x0'] < hi - 3))
+    name_hi = (ax - 3) if ax is not None else None
+    name = ' '.join(w['s'] for w in g if w is not anchor and not AREA_TOK_RE.match(w['s'])
+                    and (name_hi is None or w['x0'] < name_hi)).strip()
+    podlaha = span(px, sx) if px is not None else ''
+    steny = span(sx, tx) if sx is not None else ''
+    strop = span(tx, None) if tx is not None else ''
+    dn = deburr(name)
+    kind = 'unit' if (dn.startswith('APARTMAN') or dn.startswith('BYT')) else 'room'
+    return {'code': anchor['s'], 'name': name, 'area': area, 'podlaha': podlaha.strip(),
+            'steny': steny.strip(), 'strop': strop.strip(), 'kind': kind}
+
+
+def is_exterior_pos(name, podlaha=''):
+    """Exteriér pre polohový parser: názov (balkón/terasa/loggia/závetrie/predzáhradka),
+    mrazuvzdorná dlažba GRES M. (balkóny, terasy, loggie, závetria) alebo VSYP (štrkový
+    vsyp okolo objektu — nie je podlahová plocha, nezapočítava sa do PODLAHOVEJ PLOCHY)."""
+    dp = deburr(podlaha)
+    return (is_exterior(name) or 'ZAVETR' in deburr(name) or dp.startswith('GRES M')
+            or dp.startswith('VSYP') or deburr(name).startswith('VSYP'))
+
+
+def objects_from_name(fname):
+    """Stavebné objekty z názvu výkresu: „GR_SO.22.7-8-02.5_podkr" → ['7','8'],
+    „GR_SO.22.5-02.2_1np" → ['5'] (číslo výkresu „-02" nie je rozsah: 2 < 5).
+    Bez vzoru SO.<x>.<objekt> → []."""
+    base = os.path.basename(fname or '')
+    m = re.search(r'SO[._\s-]?\d+\.(\d+)(?:-(\d+))?(?=[-_.\s]|$)', base, re.I)
+    if not m:
+        return []
+    a = int(m.group(1))
+    if m.group(2) is not None:
+        b = int(m.group(2))
+        if a < b <= a + 9:
+            return [str(n) for n in range(a, b + 1)]
+    return [str(a)]
+
+
+def positional_csv_rows(cols, objects=None):
+    """Riadky legendy (z legend_rows_positional) → riadky app-CSV vrátane PODLAHA/STENY/STROP."""
+    def q(s):
+        return str(s).replace('"', '""')
+    so = '-'.join([objects[0], objects[-1]]) if objects and len(objects) > 1 else (objects[0] if objects else '')
+    rows, celk, any_celk, cur_block = [], 0.0, False, None
+    for col in cols:
+        for r in col:
+            if r['kind'] == 'total':
+                if r['area'] is not None:
+                    celk += r['area']; any_celk = True
+                continue
+            if r['kind'] == 'sub':
+                rows.append(';"  PODLAHOVA PLOCHA";"%s";;;;' % _fnum(r['area']))
+                continue
+            blk = r['code'].split('.')[0] if not UNIT_CODE_RE.match(r['code']) else None
+            if blk and blk != cur_block:
+                cur_block = blk
+                rows.append(';"  BLOK ""%s"" - SO %s";;;;;' % (q(blk), so or ''))
+            if r['kind'] == 'unit':
+                rows.append('"%s";"  %s";%s;;;;' % (q(r['code']), q(r['name']),
+                            ('"%s"' % _fnum(r['area'])) if r['area'] is not None else ''))
+                continue
+            if not r['name'] and r['area'] is None:
+                continue
+            ext = is_exterior_pos(r['name'], r['podlaha'])
+            av = _fnum(r['area'])
+            rows.append('"%s";"  %s";"%s";"%s";"%s";"%s";"%s"' % (
+                q(r['code']), q(r['name']), '' if ext else av, av if ext else '',
+                q(r['podlaha']), q(r['steny']), q(r['strop'])))
+    if any_celk:
+        rows.append(';"  PODL. PLOCHA CELKOVA";"%s";;;;' % _fnum(r2(celk)))
+    return rows
+
+
+def positional_check(cols):
+    """Kontrolné čísla z polohového čítania: jednotky, miestnosti, súčty.
+    Úsek legendy (po „PODL. PLOCHA CELKOVÁ") sa sčíta z medzisúčtov PODLAHOVÁ PLOCHA, ak ich
+    má (= tak ako výkres), inak z interiérových miestností. Každý byt sa navyše overí
+    proti svojej PODLAHOVEJ PLOCHE (badUnits)."""
+    units = res = rooms = 0
+    interior = total_calc = 0.0
+    seg_subs = seg_rooms = 0.0
+    seg_has_sub = False
+    printed = None
+    bad_units = []
+    cur, cur_sum = None, 0.0
+
+    def close_segment():
+        nonlocal total_calc, seg_subs, seg_rooms, seg_has_sub
+        total_calc += seg_subs if seg_has_sub else seg_rooms
+        seg_subs = seg_rooms = 0.0
+        seg_has_sub = False
+    for col in cols:
+        for r in col:
+            if r['kind'] == 'total':
+                if r['area'] is not None:
+                    printed = (printed or 0) + r['area']
+                close_segment()
+            elif r['kind'] == 'sub':
+                if r['area'] is not None:
+                    seg_subs += r['area']; seg_has_sub = True
+                if cur is not None and r['area'] is not None and abs(r2(cur_sum) - r['area']) > 0.02:
+                    bad_units.append({'code': cur, 'sum': r2(cur_sum), 'printed': r['area']})
+                cur, cur_sum = None, 0.0
+            elif r['kind'] == 'unit':
+                units += 1; res += 1
+                cur, cur_sum = r['code'], 0.0
+            else:
+                rooms += 1
+                if r['area'] is not None and not is_exterior_pos(r['name'], r['podlaha']):
+                    interior += r['area']; seg_rooms += r['area']
+                    if cur is not None:
+                        cur_sum += r['area']
+    close_segment()
+    return {'units': units, 'residential': res, 'rooms': rooms,
+            'interiorSum': r2(total_calc), 'roomInteriorSum': r2(interior),
+            'printedTotal': r2(printed) if printed is not None else None, 'badUnits': bad_units}
+
+
+def _positional_doc(doc):
+    out = []
+    for pno in range(len(doc)):
+        cols = legend_rows_positional(doc[pno])
+        if cols and sum(len(c) for c in cols) >= 3:
+            out.append(cols)
+    return out
+
+
+def _positional_summary(pos, fname):
+    tot = {'units': 0, 'residential': 0, 'rooms': 0, 'interiorSum': 0.0, 'printedTotal': None,
+           'badUnits': []}
+    for cols in pos:
+        c = positional_check(cols)
+        for k in ('units', 'residential', 'rooms'):
+            tot[k] += c[k]
+        tot['interiorSum'] = r2(tot['interiorSum'] + c['interiorSum'])
+        if c['printedTotal'] is not None:
+            tot['printedTotal'] = r2((tot['printedTotal'] or 0) + c['printedTotal'])
+        tot['badUnits'] += c['badUnits']
+    diff = None if tot['printedTotal'] is None else r2(tot['interiorSum'] - tot['printedTotal'])
+    return dict(tot, file=fname, ok=True, diff=diff, via='polohovo', objects=objects_from_name(fname))
+
+
+def _prefer_positional(pos_r, text_r):
+    """Polohové čítanie sa použije, keď sedí s CELKOVOU, alebo je bližšie než textové.
+    Staršie projekty (RNDZ/IC/Krasnany), kde textové čítanie sedí, tak ostanú bez zmeny."""
+    if not pos_r:
+        return False
+    pd = pos_r.get('diff')
+    if pd is not None and abs(pd) <= 0.05 and not pos_r.get('badUnits'):
+        return True
+    if not text_r or not text_r.get('ok'):
+        return pd is not None or pos_r.get('rooms', 0) >= 3
+    td = text_r.get('diff')
+    if td is None:
+        return pd is not None
+    return pd is not None and abs(pd) < abs(td)
+
+
+def _choose(doc, fname):
+    """(via, positional_pages|None, summary) — rozhodne medzi polohovým a textovým čítaním."""
+    pos = _positional_doc(doc)
+    pos_r = _positional_summary(pos, fname) if pos else None
+    text_r = _process_doc_text(doc, fname)
+    if _prefer_positional(pos_r, text_r):
+        return 'polohovo', pos, pos_r
+    return 'text', None, text_r
+
+
 def _process_doc(doc, fname):
+    return _choose(doc, fname)[2]
+
+
+def _process_doc_text(doc, fname):
     tot = {'resiInterior': 0.0, 'resiExterior': 0.0, 'obchodInterior': 0.0,
            'skladInterior': 0.0, 'garazInterior': 0.0, 'spolocne': 0.0}
     interior = printed = 0.0
@@ -439,6 +741,16 @@ def to_app_csv(data, fname='pdf'):
         doc = fitz.open(stream=data)          # auto-detekcia (PDF aj obrázky)
     except Exception:
         return None
+    # 1) polohové čítanie (stĺpce Č.M.) — spoľahlivé aj pri premiešanom poradí streamu
+    via, pos, _r = _choose(doc, fname)
+    if pos:
+        objs = objects_from_name(fname)
+        body = []
+        for cols in pos:
+            body += positional_csv_rows(cols, objs)
+        if body:
+            return '\r\n'.join(_CSV_HEAD + body) + '\r\n'
+    # 2) pôvodné čítanie z textového streamu (RNDZ, Krasnany, IC …)
     body = []
     for pno in range(len(doc)):
         rows, _ = legend_to_csv_page(doc[pno].get_text('text'))
