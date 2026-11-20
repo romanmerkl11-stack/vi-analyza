@@ -85,6 +85,13 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=ROOT, **kw)
 
+    def end_headers(self):
+        # appka (HTML) sa aktualizuje cez launcher na disku → prehliadač ju nesmie brať z cache
+        # (bez tejto hlavičky ju heuristicky drží dni a ukazuje starú verziu)
+        if not (self.path or '').startswith('/api/'):
+            self.send_header('Cache-Control', 'no-cache, must-revalidate')
+        super().end_headers()
+
     def log_message(self, fmt, *args):           # tichsi vypis
         if '/api/' in (self.path or ''):
             sys.stderr.write('  %s\n' % (fmt % args))
