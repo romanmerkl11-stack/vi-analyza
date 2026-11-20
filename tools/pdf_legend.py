@@ -59,9 +59,52 @@ CODE_RE = re.compile(r'^(?!\d+\.(?:NP|PP)$)(?:[A-Za-zŠš][\wŠš.\-]*\.[\wŠš\
 # plocha: "341,41", "90.08", "3 028,59", celé číslo, alebo pomlčka (bez plochy)
 NUM_RE = re.compile(r'^[-–]$|^\d[\d\s ]*[,\.]\d+$|^\d[\d\s ]*$')
 
+# holý číselný kód miestnosti bez písmena bloku (napr. "1.01", "2.05", "1.1") — niektoré
+# projekty (Nové Šúty II) takto značia SPOLOČNÉ priestory (schodiská, sklady) a bez tejto
+# vetvy ticho vypadávajú (CODE_RE ich odmieta, NUM_RE ich naopak chytí ako číslo → token sa
+# minie so správnym pend_code a celá miestnosť sa zahodí). Úmyselne BEZ voliteľného písmena
+# na konci (na rozdiel od CODE_RE) — aby sa nenachytilo číslo VÝKRESU použité ako referencia
+# v texte pečiatky/schémy (napr. "1.04a"). CODE_RE ostáva NEZMENENÝ (nulové riziko pre
+# _scan_total a _block_of, ktoré sa naň spoliehajú) — rozpoznanie je čisto KONTEXTOVÉ, pozri
+# _looks_like_room_name nižšie: berie sa ako kód len keď ho nasleduje token vyzerajúci ako
+# NÁZOV a keď sa nečaká plocha k predošlému kódu (pend_code/pend is None).
+BARE_NUM_CODE_RE = re.compile(r'^\d+\.\d+$')
+
 # anchor legendy — tolerantný voči OCR (napr. "LEGENDA MIESINOSTI" namiesto "MIESTNOSTÍ").
 # "MIES" sa OCR-om číta spoľahlivo; "LEGENDA MATERIÁLOV" cez MIES neprejde.
 LEGEND_RE = re.compile(r'LEGENDA\s+MIES', re.I)
+
+# kontrolný súčet — „PODLAHOVÁ PLOCHA CELKOVÁ". OCR niekedy zlepí slová bez medzery
+# ("PODLAHOVAPLOCHA"), preto \s* namiesto pevnej medzery. Rovnaký anchor pokrýva aj
+# medzisúčet BEZ „CELKOVÁ" (PODLAHOVÁ PLOCHA <jednotky>) — ten sa nesčítava do floor_total.
+_TOTAL_ANCHOR_RE = re.compile(r'^PODLAHOVA\s*PL')
+# alternatívny per-jednotkový súčet zo sken. legiend (Nové Šúty): „Spolu (Užitková plocha)
+# BYT - X.Y.Z :". NIE je plošná CELKOVÁ (chýbajú spoločné priestory) → nesčítava sa do
+# floor_total, len sa zapíše ako medzisúčet jednotky (rovnako ako PODLAHOVÁ PLOCHA bez CELKOVÁ).
+_UNIT_TOTAL_RE = re.compile(r'^SPOLU\b.*UZITKOVA\s*PLOCHA')
+
+
+def _scan_total(toks, i, window=5):
+    """Od anchor-tokenu na indexe i (PODLAHOVÁ PLOCHA / SPOLU...UŽITKOVÁ PLOCHA) nájdi v
+    nasledujúcich `window` tokenoch prvé číslo (plocha) a či sa medzi nimi vyskytuje
+    „CELKOVÁ". Poradie NEpredpokladáme — pri OCR sken (zalomenie riadku inak než vo
+    vektore) vie číslo vyjsť PRED slovom CELKOVÁ. Vráti (value, is_celkova, next_i)."""
+    is_celkova = False
+    val = None
+    j = i + 1
+    end = min(len(toks), i + 1 + window)
+    while j < end:
+        du = deburr(toks[j])
+        if du == 'CELKOVA':
+            is_celkova = True
+            j += 1
+            continue
+        if val is None and NUM_RE.match(toks[j]) and not CODE_RE.match(toks[j]):
+            val = parse_area(toks[j])
+            j += 1
+            continue
+        break
+    return val, is_celkova, j
 
 HEADER_KEYS = [deburr(x) for x in [
     'LEGENDA MIESTNOSTI', 'PLOCHA / M2', 'PLOCHA/M2', 'UPRAVY POVRCHOV', 'C.M.',
@@ -73,9 +116,50 @@ def is_header(tok):
     d = deburr(tok)
     return any(k in d for k in HEADER_KEYS)
 
+def _looks_like_room_name(tok):
+    """Kontextová poistka pre BARE_NUM_CODE_RE: holý číselný kód (napr. "1.01") sa berie
+    ako kód miestnosti len vtedy, keď ho nasleduje token vyzerajúci ako NÁZOV — nie číslo
+    (plocha), nie hlavička stĺpca a nie kotva súčtu. Bez tejto poistky by sa dalo nesprávne
+    "rozbehnúť" parsovanie na hocijakom čísle v tvare X.Y mimo skutočnej tabuľky miestností."""
+    if not tok:
+        return False
+    if NUM_RE.match(tok) or is_header(tok):
+        return False
+    du = deburr(tok)
+    if _TOTAL_ANCHOR_RE.match(du) or _UNIT_TOTAL_RE.match(du):
+        return False
+    return True
+
+def _bare_code_is_room(toks, i, window=6):
+    """Druhá (prísnejšia) poistka pre BARE_NUM_CODE_RE: samotné „nasleduje názvový token"
+    nestačí — text pečiatky/titulu vie vyzerať ako názov (napr. „1.01 PÔDORYS 1PP 4xA4",
+    „02.11 PÔDORYS - 10.NP-LEGENDA" — reálne overené fantómy z Krasnany a IC1, obe BEZ
+    plochy). Preto vyžadujeme, aby v najbližších `window` tokenoch po kóde skutočne prišlo
+    ČÍSLO (plocha) skôr, než sa narazí na ďalší kód / kotvu súčtu / hlavičku stĺpca — presne
+    tak, ako to pri reálnej miestnosti (kód+názov+plocha) urobí aj samotný stavový automat."""
+    n = len(toks)
+    j = i + 1
+    if j >= n or not _looks_like_room_name(toks[j]):
+        return False
+    end = min(n, i + 1 + window)
+    while j < end:
+        tok = toks[j]
+        if NUM_RE.match(tok):
+            return True
+        du = deburr(tok)
+        if is_header(tok) or _TOTAL_ANCHOR_RE.match(du) or _UNIT_TOTAL_RE.match(du):
+            return False
+        if CODE_RE.match(tok) or BARE_NUM_CODE_RE.match(tok):
+            return False
+        j += 1
+    return False
+
 # LOGGIA (tal. písanie) a ZÁHRADA sú exteriér — parita s appkou (roomCategory). Bez nich
 # končila plocha loggie v INTERIÉRI (napr. IC 4NP: 14× loggia zle v interiéri).
-EXT_KEYS = ['BALKON', 'LODZIA', 'LOGGIA', 'TERASA', 'PREDZAHRADKA', 'ZAHRAD']
+# Parita s appkou (AnalyzaCore.roomCategory EXTERIÉR): závetrie/strecha/loggia sa NErátajú
+# do podlahovej plochy. ZAVETRIE chýbalo → Krasnany 1NP mal +21,2 (závetrie zle v interiéri).
+EXT_KEYS = ['BALKON', 'LODZIA', 'LOGGIA', 'LOGGA', 'TERASA', 'PREDZAHRADKA', 'ZAHRAD',
+            'ZAVETRIE', 'STRECHA']
 TECH_KEYS = ['TECHNICK', 'VYMENNIK', 'NEBYTOVY', 'STROJOVN', 'ROZVODN', 'KOTOLN',
              'TRAFO', 'ELEKTRO', 'UPRATOVAC', 'ODPAD']
 GARAZ_KEYS = ['GARAZ', 'PARKOVISKO', 'PARKOVANIE', 'RAMPA', 'STATIE', 'STANIE']
@@ -167,30 +251,35 @@ def parse_legend(page_text):
         return {'code': code, 'name': name, 'area': area,
                 'exterior': is_exterior(name), 'unit': unit_for, 'kind': kind}
 
-    for t in toks:
+    i = 0
+    n = len(toks)
+    while i < n:
+        t = toks[i]
         du = deburr(t)
-        if du.startswith('PODLAHOVA PL'):   # „PLOCHA" aj skratka „PL." (Krasnany: PODLAHOVA PL. CELKOVA)
+        # „PODLAHOVÁ PLOCHA" [„CELKOVÁ"] <číslo> — poradie CELKOVÁ/číslo nepredpokladáme
+        # (OCR sken vie zalomiť riadok inak než vektor a vydať číslo pred slovom CELKOVÁ).
+        if _TOTAL_ANCHOR_RE.match(du) or _UNIT_TOTAL_RE.match(du):
             flush_as_header(); pend_code, pend_name = None, []
-            _pending_total[0] = 'CELKOVA' if 'CELKOVA' in du else 'SUB'
+            anchor_celkova = 'CELKOVA' in du
+            is_unit_total = bool(_UNIT_TOTAL_RE.match(du))
+            v, more_celkova, i = _scan_total(toks, i)
+            # per-jednotkový súčet (Nové Šúty „Spolu…") NIE JE plošná CELKOVÁ → nesčítava sa
+            if v is not None and not is_unit_total and (anchor_celkova or more_celkova):
+                # na jednom hárku býva viac legiend vedľa seba → sčítaj všetky CELKOVÉ
+                floor_total = (floor_total or 0) + v
             continue
-        # „PODLAHOVÁ PLOCHA" [„CELKOVÁ"] <číslo> — CELKOVÁ býva samostatný token
-        if _pending_total[0] is not None:
-            if du == 'CELKOVA':
-                _pending_total[0] = 'CELKOVA'; continue
-            if NUM_RE.match(t) and not CODE_RE.match(t):
-                if _pending_total[0] == 'CELKOVA':
-                    # na jednom hárku býva viac legiend vedľa seba → sčítaj všetky CELKOVÉ
-                    v = parse_area(t)
-                    if v is not None:
-                        floor_total = (floor_total or 0) + v
-                _pending_total[0] = None; continue
-            _pending_total[0] = None   # nie číslo → koniec medzisúčtu, spracuj token ďalej
         if is_header(t):
-            continue
+            i += 1; continue
         if CODE_RE.match(t) and not NUM_RE.match(t):
             flush_as_header()
             pend_code, pend_name = t, []
-            continue
+            i += 1; continue
+        # holý číselný kód (spoločné priestory bez písmena bloku, napr. Nové Šúty II
+        # "1.01 SCHODISKO ...") — len keď NEčakáme plochu k predošlému kódu a keď kód
+        # skutočne dostane názov+plochu (pozri _bare_code_is_room).
+        if pend_code is None and BARE_NUM_CODE_RE.match(t) and _bare_code_is_room(toks, i):
+            pend_code, pend_name = t, []
+            i += 1; continue
         if NUM_RE.match(t):
             if pend_code is not None:
                 nm = ' '.join(pend_name).strip()
@@ -200,14 +289,13 @@ def parse_legend(page_text):
                 if nm and not _is_schedule_noise(nm):
                     rooms.append(_mk_room(pend_code, nm, parse_area(t)))
                 pend_code, pend_name = None, []
-            continue
+            i += 1; continue
         # názvový fragment
         if pend_code is not None:
             pend_name.append(t)
+        i += 1
     flush_as_header()
     return {'rooms': rooms, 'units': units, 'floorTotalPrinted': floor_total}
-
-_pending_total = [None]  # malý stavový príznak pre „PODLAHOVÁ PLOCHA <num>"
 
 
 def aggregate(parsed):
@@ -285,7 +373,6 @@ def _process_doc(doc, fname):
     units = res = rooms = 0
     any_leg = False
     for pno in range(len(doc)):
-        _pending_total[0] = None
         parsed = parse_legend(doc[pno].get_text('text'))
         if not parsed:
             continue
@@ -388,38 +475,45 @@ def legend_to_csv_page(page_text):
         else:
             emit_room(pend, nm, None)
 
-    for t in toks:
+    idx = 0
+    n = len(toks)
+    while idx < n:
+        t = toks[idx]
         du = deburr(t)
-        if du.startswith('PODLAHOVA PL'):   # „PLOCHA" aj skratka „PL." (Krasnany: PODLAHOVA PL. CELKOVA)
+        # „PODLAHOVÁ PLOCHA" [„CELKOVÁ"] <číslo> — poradie CELKOVÁ/číslo nepredpokladáme
+        # (OCR sken vie zalomiť riadok inak než vektor a vydať číslo pred slovom CELKOVÁ).
+        if _TOTAL_ANCHOR_RE.match(du) or _UNIT_TOTAL_RE.match(du):
             flush(); pend = None; pname = []
-            pt = 'C' if 'CELKOVA' in du else 'S'
-            continue
-        if pt is not None:
-            if du == 'CELKOVA':
-                pt = 'C'; continue
-            if NUM_RE.match(t) and not CODE_RE.match(t):
-                v = parse_area(t)
-                if pt == 'C':
-                    if v is not None:
-                        celk += v; any_celk = True
+            anchor_celkova = 'CELKOVA' in du
+            is_unit_total = bool(_UNIT_TOTAL_RE.match(du))
+            v, more_celkova, idx = _scan_total(toks, idx)
+            if v is not None:
+                # per-jednotkový súčet (Nové Šúty „Spolu…") NIE JE plošná CELKOVÁ, len
+                # medzisúčet jednotky (rovnako ako PODLAHOVÁ PLOCHA bez slova CELKOVÁ)
+                if not is_unit_total and (anchor_celkova or more_celkova):
+                    celk += v; any_celk = True
                 else:
                     rows.append(';"  PODLAHOVA PLOCHA";"%s";;;;' % _fnum(v))   # medzisúčet jednotky
                     if unit_hdr_rows:
                         valid_units.add(unit_hdr_rows[-1])   # medzisúčet potvrdzuje poslednú hlavičku
-                pt = None; continue
-            pt = None
-        if is_header(t):
             continue
+        if is_header(t):
+            idx += 1; continue
         if CODE_RE.match(t) and not NUM_RE.match(t):
             flush(); pend = t; pname = []
-            continue
+            idx += 1; continue
+        # holý číselný kód (pozri komentár pri BARE_NUM_CODE_RE / parse_legend)
+        if pend is None and BARE_NUM_CODE_RE.match(t) and _bare_code_is_room(toks, idx):
+            pend, pname = t, []
+            idx += 1; continue
         if NUM_RE.match(t):
             if pend is not None:
                 emit_room(pend, ' '.join(pname).strip(), parse_area(t))
                 pend = None; pname = []
-            continue
+            idx += 1; continue
         if pend is not None:
             pname.append(t)
+        idx += 1
     flush()
     # zahoď fantómové hlavičky jednotiek (bez medzisúčtu) z pomocnej tabuľky za legendou
     drop = set(unit_hdr_rows) - valid_units
@@ -453,6 +547,15 @@ def to_app_csv(data, fname='pdf'):
 # Poradie textu sa zrekonštruuje z polohovaných OCR položiek (pásma + riadky),
 # potom ide cez ten istý parser ako vektor. Poistka: kontrola CELKOVEJ v appke.
 
+# OCR dá plochu s jednotkou rovno v tom istom boxe ("16,74 m²", niekedy "1,4 m?" keď sa
+# "²" prečíta ako "?"). Bez tohto orezania číslo nikdy neprejde cez NUM_RE (ostane "zliate"
+# v mene, lebo token má za sebou text naviac) a spolieha sa len na krehký fallback v emit_room.
+_AREA_UNIT_RE = re.compile(r'^(?P<num>[-–]|\d[\d\s ]*[,.]\d+|\d[\d\s ]*)\s*m[²2?]\s*$', re.I)
+
+def _strip_area_unit(s):
+    m = _AREA_UNIT_RE.match(s)
+    return m.group('num') if m else s
+
 def _to_rows_tokens(items):
     a = sorted(items, key=lambda it: (-it.get('y', 0), it.get('x', 0)))
     rows = []
@@ -469,8 +572,13 @@ def _to_rows_tokens(items):
         for c in sorted(r['cells'], key=lambda it: it.get('x', 0)):
             s = (c.get('s') or '').strip()
             if s:
-                toks.append(s)
+                toks.append(_strip_area_unit(s))
     return toks
+
+# hlavičky stĺpcov „úpravy povrchov" (materiál podlahy/stien/stropu) — SUSEDNÝ blok vpravo
+# od stĺpca PLOCHA. Nepatria k miestnosti; ich obsah ("Gresová dlažba", "OMIETKA"…) by sa
+# inak zliapal do názvu miestnosti, keďže token-parser ich od názvu nevie odlíšiť.
+_FINISH_HDRS = {'PODLAHA', 'STENY', 'STROP', 'PODHLAD'}
 
 def _legend_regions(items):
     """Priestorovo oreže KAŽDÚ legendu z celého (naskenovaného) hárku:
@@ -489,6 +597,18 @@ def _legend_regions(items):
         x_cap = ax + 0.40 * sheet_w
         x_hi = min(anchors[k + 1].get('x', 0) - 20, x_cap) if k + 1 < len(anchors) else x_cap
         col = [it for it in items if x_lo <= it.get('x', 0) < x_hi and it.get('y', 0) <= ay + 3]
+        # rekonštrukcia stĺpcov: nájdi hlavičky PLOCHA a prvého „úpravy povrchov" stĺpca
+        # (PODLAHA/STENY/STROP/PODHĽAD) blízko kotvy a zaraž región tesne pred ním —
+        # inak sa materiál podlahy/stien/stropu (a cudzia LEGENDA MATERIÁLOV ešte ďalej
+        # vpravo) zlepí do názvu miestnosti.
+        hdr_band = [it for it in col if it.get('y', 0) >= ay - 40]
+        area_x = min((it.get('x', 0) for it in hdr_band
+                      if deburr(it.get('s', '')).startswith('PLOCHA')), default=None)
+        finish_x = min((it.get('x', 0) for it in hdr_band
+                        if deburr(it.get('s', '')) in _FINISH_HDRS), default=None)
+        if area_x is not None and finish_x is not None and finish_x > area_x:
+            x_hi = min(x_hi, area_x + 0.5 * (finish_x - area_x))
+            col = [it for it in col if it.get('x', 0) < x_hi]
         cels = [it.get('y', 0) for it in col if re.search(r'CELKOV', deburr(it.get('s', '')))]
         y_bot = min(cels) if cels else None       # y rastie hore → spodok = najmenšie y
         band = [it for it in col if (y_bot is None or it.get('y', 0) >= y_bot - 4)]

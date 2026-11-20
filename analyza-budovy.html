@@ -279,7 +279,7 @@
 <script>
 /* JEDNA verzia aplikácie = verzia GitHub releasu (dátumová schéma, napr. 2026.08.21).
    Launcher ju obnovuje z gitu; toto číslo MUSÍ sedieť s release tagom `v<verzia>` a manifestom. */
-window.APP_VERSION = '2026.08.23';
+window.APP_VERSION = '2026.08.24.3';
 (function(){
   var txt = 'verzia ' + window.APP_VERSION;
   var el = document.getElementById('appVer');
@@ -1111,7 +1111,7 @@ window.APP_VERSION = '2026.08.23';
     { key: 'APARTMÁN', test: function (d) { return /^APARTMAN\b/.test(d); } },
     { key: 'OBCHODNÝ PRIESTOR', test: function (d) { return /^OBCHODNY PRIESTOR\b/.test(d); } },
     // Kancelárske a všeobecné nebytové jednotky sú predajné nebytové priestory.
-    { key: 'OBCHODNÝ PRIESTOR', test: function (d) { return /^(KANCELARIA|NEBYTOVY PRIESTOR)\b/.test(d); } },
+    { key: 'OBCHODNÝ PRIESTOR', test: function (d) { return /^(KANCELARIA|NEBYT\w*\.?\s*PRIESTOR)\b/.test(d); } },
     { key: 'MEZONET', test: function (d) { return /^MEZONET\b/.test(d); } },
     { key: 'ATELIÉR', test: function (d) { return /^ATELIER\b/.test(d); } },
     { key: 'ŠTÚDIO', test: function (d) { return /^STUDIO\b/.test(d); } }
@@ -1133,6 +1133,12 @@ window.APP_VERSION = '2026.08.23';
     for (var k in _catOverrides) {
       if (_catOverrides[k] === 'TECHNICKÉ / NEBYTOVÉ') _catOverrides[k] = 'TECHNICKÉ PRIESTORY';
     }
+  }
+
+  // ručné opravy zle prečítanej miestnosti (OCR) — kľúč (súbor, kód), ako _catOverrides pre kategórie
+  var _roomFixes = {};
+  function setRoomFixes(map) {
+    _roomFixes = map || {};
   }
   function catFlags(cat) {
     return { cat: cat, living: cat === 'OBYTNÁ', spaciKut: cat === 'SPACÍ KÚT',
@@ -1262,6 +1268,14 @@ window.APP_VERSION = '2026.08.23';
       var dname = deburr(name);
       var interior = parseNum(cx(cells, 'interior', 2));
       var exterior = parseNum(cx(cells, 'exterior', 3));
+      // ručná oprava zle prečítanej miestnosti (OCR) — musí sa premietnuť do klasifikácie aj plôch,
+      // preto sa aplikuje čo najskôr (pred roomCategory aj pred rozhodnutím o zahodení).
+      var _fx = _roomFixes[filename] && _roomFixes[filename][code];
+      if (_fx) {
+        if (_fx.name != null) { name = _fx.name; dname = deburr(name); }
+        if (_fx.interior != null) interior = (typeof _fx.interior === 'number') ? _fx.interior : parseNum(_fx.interior);
+        if (_fx.exterior != null) exterior = (typeof _fx.exterior === 'number') ? _fx.exterior : parseNum(_fx.exterior);
+      }
       var podlaha = norm(cx(cells, 'podlaha', 4));
       var steny = norm(cx(cells, 'steny', 6));
       var strop = norm(cx(cells, 'strop', 8));
@@ -1384,7 +1398,8 @@ window.APP_VERSION = '2026.08.23';
         block: blockForRoom,
         unitCode: openUnit ? openUnit.code : null,
         living: !!rc.living, spaciKut: !!rc.spaciKut,
-        sklad: !!rc.sklad, garaz: !!rc.garaz, unknown: !!rc.unknown
+        sklad: !!rc.sklad, garaz: !!rc.garaz, unknown: !!rc.unknown,
+        file: filename
       };
       floor.rooms.push(room);
 
@@ -1493,6 +1508,7 @@ window.APP_VERSION = '2026.08.23';
     model.stats = computeStats(model);
     model.checks = computeChecks(model);
     model.checks.levelMismatch = levelMismatch;   // pv-n11: nesúlad rozpiska ↔ kódy podlažia
+    model.checks.health = computeHealth(model.checks, model);   // index dôveryhodnosti čítania
     return model;
   }
 
@@ -1799,7 +1815,85 @@ window.APP_VERSION = '2026.08.23';
     var badFormat = model.floors.filter(function (fl) { return fl.formatOK === false; })
       .map(function (fl) { return { label: fl.label, id: fl.id }; });
 
-    return { floorChecks: floorChecks, spaciKut: spaciKut, unknown: unknown, noArea: noArea, zeroIzby: zeroIzby, badFormat: badFormat };
+    // --- DETEKTORY ÚPLNOSTI (aj bez tlačeného súčtu) ---
+    // Medzery v číslovaní kódov: v rámci skupiny (kód bez poslednej číslice) chýbajúce poradie
+    // → možno vynechaná miestnosť. Konzervatívne: len malé medzery (1–2) v dostatočnej rade.
+    var seqGroups = {};
+    model.rooms.forEach(function (r) {
+      if (!r.code) return;
+      var segs = String(r.code).split('.');
+      var m = /^(\d+)/.exec(segs[segs.length - 1]);
+      if (!m) return;
+      var key = segs.slice(0, -1).join('.') || (r.floor + '|' + (r.block || ''));
+      (seqGroups[key] = seqGroups[key] || []).push(parseInt(m[1], 10));
+    });
+    var gaps = [];
+    Object.keys(seqGroups).forEach(function (k) {
+      var ns = seqGroups[k].filter(function (v, i, a) { return a.indexOf(v) === i; })
+        .sort(function (a, b) { return a - b; });
+      if (ns.length < 4) return;                       // krátke rady nehodnotíme (nespoľahlivé)
+      for (var i = 1; i < ns.length; i++) {
+        var d = ns[i] - ns[i - 1];
+        if (d > 1 && d <= 3) for (var x = ns[i - 1] + 1; x < ns[i]; x++) gaps.push(k + '.' + x);
+      }
+    });
+    // Nečakane bez plochy: miestnosť bez m², ktorá nie je štrukturálne bezplochová (výťah/šachta/rampa…)
+    var _EXPECT_NOAREA = /VYTAH|SACHTA|RAMPA|INSTALAC|KOMIN|\bVZT\b|PRIEDUCH/;
+    var unexpNoArea = noArea.filter(function (x) { return !_EXPECT_NOAREA.test(deburr(x.name)); });
+    // Nepravdepodobné plochy: obytná/hygiena/kuchyňa > 300 m² = takmer isto OCR posun desatinnej.
+    var _SMALL_CATS = { 'OBYTNÁ': 1, 'HYGIENA': 1, 'KUCHYŇA': 1 };
+    var outliers = model.rooms.filter(function (r) {
+      return _SMALL_CATS[r.cat] && (r.interior || 0) > 300;
+    }).map(function (r) { return { code: r.code, name: r.name, interior: r.interior, floor: r.floor }; });
+
+    // miestnosti hodné ručnej kontroly/opravy čítania (OCR): bez plochy neočakávane,
+    // podozrivo veľká plocha, alebo neznámy/neklasifikovaný názov — jednotlivo (nie zoskupené),
+    // aby sa dali priamo editovať v záložke „Oprava čítania".
+    var needsReview = [];
+    model.rooms.forEach(function (r) {
+      var has = (r.interior != null && r.interior !== 0) || (r.exterior != null && r.exterior !== 0);
+      var reason = null;
+      if (!has && !_EXPECT_NOAREA.test(deburr(r.name))) reason = 'bez plochy';
+      else if (_SMALL_CATS[r.cat] && (r.interior || 0) > 300) reason = 'podozrivo veľká plocha';
+      else if (r.unknown) reason = 'neznámy názov';
+      if (reason) {
+        needsReview.push({ file: r.file, floor: r.floor, code: r.code, name: r.name,
+          interior: r.interior, exterior: r.exterior, reason: reason });
+      }
+    });
+
+    return { floorChecks: floorChecks, spaciKut: spaciKut, unknown: unknown, noArea: noArea,
+             unexpNoArea: unexpNoArea, gaps: gaps, outliers: outliers,
+             zeroIzby: zeroIzby, badFormat: badFormat, needsReview: needsReview };
+  }
+
+  // Zhrnie signály spoľahlivosti do jedného „health" verdiktu. Volá sa v buildModel AŽ po
+  // pripojení levelMismatch, aby mal kompletné vstupy.
+  function computeHealth(c, model) {
+    var fc = c.floorChecks || [];
+    var floorsChecked = fc.filter(function (f) { return f.ok !== null; }).length;
+    var floorsOk = fc.filter(function (f) { return f.ok === true; }).length;
+    var floorsBad = fc.filter(function (f) { return f.ok === false; }).length;
+    var floorsNoTotal = fc.filter(function (f) { return f.ok === null; }).length;
+    var badFormat = (c.badFormat || []).length;
+    var levelMismatch = (c.levelMismatch || []).length;
+    var unknown = (c.unknown || []).length;
+    var unexpNoArea = (c.unexpNoArea || []).length;
+    var gaps = (c.gaps || []).length;
+    var outliers = (c.outliers || []).length;
+    var autoDiscarded = (model.discarded || []).filter(function (d) { return !d.manual; }).length;
+    // TVRDÉ = korumpuje čísla; MÄKKÉ = na overenie
+    var hard = floorsBad + badFormat + levelMismatch + outliers;
+    var soft = unknown + unexpNoArea + gaps;
+    var level, verdict;
+    if (hard > 0) { level = 'red'; verdict = 'Skontroluj — ' + hard + ' ' + (hard === 1 ? 'nezrovnalosť' : (hard < 5 ? 'nezrovnalosti' : 'nezrovnalostí')); }
+    else if (soft > 0) { level = 'yellow'; verdict = 'Prevažne OK — ' + soft + ' na overenie'; }
+    else if (floorsChecked === 0) { level = 'yellow'; verdict = 'Bez kontrolného súčtu — over úplnosť'; }
+    else { level = 'green'; verdict = 'Vysoká dôveryhodnosť'; }
+    return { level: level, verdict: verdict, floorsOk: floorsOk, floorsChecked: floorsChecked,
+             floorsBad: floorsBad, floorsNoTotal: floorsNoTotal, badFormat: badFormat,
+             levelMismatch: levelMismatch, unknown: unknown, unexpNoArea: unexpNoArea,
+             gaps: gaps, outliers: outliers, autoDiscarded: autoDiscarded };
   }
 
   return {
@@ -1807,7 +1901,7 @@ window.APP_VERSION = '2026.08.23';
     parseCSVText: parseCSVText, floorMeta: floorMeta,
     detectUnitType: detectUnitType, roomCategory: roomCategory,
     parseFloor: parseFloor, buildModel: buildModel, computeBilancie: computeBilancie,
-    setCategoryOverrides: setCategoryOverrides
+    setCategoryOverrides: setCategoryOverrides, setRoomFixes: setRoomFixes
   };
 });
 </script>
@@ -1828,6 +1922,11 @@ window.APP_VERSION = '2026.08.23';
   var CAT_LEARN_KEY='vi_cat_overrides_v1';
   var catOverrides = (function(){ try{ return JSON.parse(localStorage.getItem(CAT_LEARN_KEY)||'{}')||{}; }catch(e){ return {}; } })();
   try{ Core.setCategoryOverrides(catOverrides); }catch(e){}   // aplikuj naučené hneď na štarte
+  // Ručné opravy zle prečítanej miestnosti (OCR): {súbor: {kód: {name?, interior?, exterior?}}}.
+  // Perzistentné v localStorage — presne ako naučené kategórie vyššie (záložka „Oprava čítania").
+  var ROOMFIX_KEY='vi_room_fixes_v1';
+  var roomFixes = (function(){ try{ return JSON.parse(localStorage.getItem(ROOMFIX_KEY)||'{}')||{}; }catch(e){ return {}; } })();
+  try{ Core.setRoomFixes(roomFixes); }catch(e){}   // aplikuj uložené opravy hneď na štarte
   var CATS = ['OBYTNÁ','KUCHYŇA','HYGIENA','KOMUNIKÁCIA','SPOLOČNÉ KOMUNIKÁCIE','EXTERIÉR','SKLAD','GARÁŽ / PARKOVANIE','NEBYTOVÉ PRIESTORY','TECHNICKÉ PRIESTORY','VEREJNÉ','SPACÍ KÚT','INÉ (NA OVERENIE)'];
   function catSelect(name,cur){
     var opts=CATS.map(function(c){return '<option'+(c===cur?' selected':'')+'>'+esc(c)+'</option>';}).join('');
@@ -1927,6 +2026,33 @@ window.APP_VERSION = '2026.08.23';
     try{ localStorage.setItem(CAT_LEARN_KEY, JSON.stringify(catOverrides)); }catch(err){}
     if(lastFiles){ model=Core.buildModel(lastFiles); render();
       var bt=[].find.call(document.querySelectorAll('nav.tabs button'),function(x){return x.getAttribute('data-tab')==='typy';}); if(bt) bt.click();
+    }
+  });
+
+  // oprava zle prečítanej miestnosti (názov / interiér / exteriér) v záložke „Oprava čítania“ → prepočet
+  document.addEventListener('change',function(e){
+    var el=e.target.closest && e.target.closest('[data-roomfix]'); if(!el) return;
+    var file=el.getAttribute('data-file'), code=el.getAttribute('data-code'), field=el.getAttribute('data-field');
+    if(!file || !field) return;
+    var val=(el.value==null?'':String(el.value)).trim();
+    roomFixes[file]=roomFixes[file]||{};
+    roomFixes[file][code]=roomFixes[file][code]||{};
+    if(field==='interior' || field==='exterior') roomFixes[file][code][field]=(val===''?null:Core.parseNum(val));
+    else roomFixes[file][code][field]=(val===''?null:val);
+    Core.setRoomFixes(roomFixes);
+    try{ localStorage.setItem(ROOMFIX_KEY, JSON.stringify(roomFixes)); }catch(err){}   // NAUČ sa (perzistentne)
+    if(lastFiles){ model=Core.buildModel(lastFiles); render();
+      var b=[].find.call(document.querySelectorAll('nav.tabs button'),function(x){return x.getAttribute('data-tab')==='oprava';}); if(b) b.click();
+    }
+  });
+
+  // „Zabudnúť opravy" — vymaže ručné opravy čítania miestností
+  document.addEventListener('click',function(e){
+    var b=e.target.closest && e.target.closest('[data-roomfixreset]'); if(!b) return;
+    if(!confirm('Zabudnúť všetky opravy čítania miestností? Vrátia sa pôvodné (načítané) hodnoty.')) return;
+    roomFixes={}; Core.setRoomFixes({}); try{ localStorage.removeItem(ROOMFIX_KEY); }catch(err){}
+    if(lastFiles){ model=Core.buildModel(lastFiles); render();
+      var bt=[].find.call(document.querySelectorAll('nav.tabs button'),function(x){return x.getAttribute('data-tab')==='oprava';}); if(bt) bt.click();
     }
   });
 
@@ -2163,7 +2289,8 @@ window.APP_VERSION = '2026.08.23';
   var CSV_TABS=[
     ['bilancie','Bilancie'],['podlazia','Po podlažiach'],['podlaziaso','Podlažia × SO'],
     ['jednotky','Zoznam jednotiek'],['dispozicie','Dispozície'],['typy','Typy miestností'],
-    ['povrchy','Výkaz povrchov'],['normy','Normy'],['kontrola','Kontrola']
+    ['povrchy','Výkaz povrchov'],['efektivita','Efektivita'],['normy','Normy'],
+    ['kontrola','Kontrola'],['oprava','Oprava čítania'],['regulacia','Regulácia']
   ];
   // Flatmix funguje z CSV aj z PDF, ostatné záložky potrebujú CSV legendu.
   // Záložky sú vždy všetky — keď chýba CSV, dá sa to len vysvetliť. Skrývať ich
@@ -2176,7 +2303,7 @@ window.APP_VERSION = '2026.08.23';
   function render(){
     var TABS=activeTabs();
     var nav=document.getElementById('tabs'); nav.style.display='flex';
-    var groupFor=function(k){if(k==='ekonomika')return'Projekt';if(['bilancie','podlazia','podlaziaso'].indexOf(k)>=0)return'Budova';if(['jednotky','dispozicie','typy','povrchy'].indexOf(k)>=0)return'Jednotky';if(['normy','kontrola'].indexOf(k)>=0)return'Kontrola';return'Nástroje';};
+    var groupFor=function(k){if(k==='ekonomika')return'Projekt';if(['bilancie','podlazia','podlaziaso'].indexOf(k)>=0)return'Budova';if(['jednotky','dispozicie','typy','povrchy','efektivita'].indexOf(k)>=0)return'Jednotky';if(['normy','kontrola','oprava','regulacia'].indexOf(k)>=0)return'Kontrola';return'Nástroje';};
     var prevGroup='';
     // počet položiek na triáž v Typoch: neznáme (INÉ) + novo auto-zahodené názvy
     var triage=0;
@@ -2184,7 +2311,13 @@ window.APP_VERSION = '2026.08.23';
       triage=model.stats.roomTypeRows.filter(function(r){return r.cat==='INÉ (NA OVERENIE)';}).length
             +(model.discarded||[]).filter(function(d){return !d.manual;}).length;
     }
-    var badgeHtml=function(k){return (k==='typy'&&triage>0)?' <span title="nové/neznáme typy na zaradenie" style="display:inline-block;min-width:16px;padding:0 5px;margin-left:5px;border-radius:9px;background:#e8590c;color:#fff;font-size:11px;line-height:16px;text-align:center;font-weight:700">'+triage+'</span>':'';};
+    var health=(model&&model.checks&&model.checks.health)?model.checks.health:null;
+    var HCOL={green:'#2b8a3e',yellow:'#e8a90c',red:'#e03131'};
+    var badgeHtml=function(k){
+      if(k==='typy'&&triage>0) return ' <span title="nové/neznáme typy na zaradenie" style="display:inline-block;min-width:16px;padding:0 5px;margin-left:5px;border-radius:9px;background:#e8590c;color:#fff;font-size:11px;line-height:16px;text-align:center;font-weight:700">'+triage+'</span>';
+      if(k==='kontrola'&&health) return ' <span title="'+esc(health.verdict)+'" style="display:inline-block;width:9px;height:9px;margin-left:5px;border-radius:50%;background:'+(HCOL[health.level]||'#888')+';vertical-align:middle"></span>';
+      return '';
+    };
     nav.innerHTML=TABS.map(function(t,i){var g=groupFor(t[0]),start=g!==prevGroup;prevGroup=g;return '<button data-tab="'+t[0]+'" data-group="'+g+'" title="'+g+' · '+t[1]+'" class="'+(i===0?'active ':'')+(start?'group-start':'')+'">'+t[1]+badgeHtml(t[0])+'</button>';}).join('');
     var content=document.getElementById('content');
     content.innerHTML=TABS.map(function(t,i){return '<section class="tab'+(i===0?' active':'')+'" id="sec-'+t[0]+'">'+renderTab(t[0])+'</section>';}).join('');
@@ -2194,7 +2327,7 @@ window.APP_VERSION = '2026.08.23';
       document.getElementById('sec-'+b.getAttribute('data-tab')).classList.add('active');
     });});
     enhancePresentationUI(content);
-    if(model){ wireJednotkyFilter(); wireNorms(); }
+    if(model){ wireJednotkyFilter(); wireNorms(); wireEfekt(); wireRegulacia(); wireOpravaFilter(); }
   }
 
   var s=function(){return model.stats;};
@@ -2316,20 +2449,7 @@ window.APP_VERSION = '2026.08.23';
       }
       return typesCard+discCard;
     }
-    if(key==='efektivita'){
-      var T2=st.totals;
-      var mixRows=[
-        mixRow('Byty',st.totals.byt,st.plochy.byt,T2.predajnaInterior,model.units.length+model.skladUnits.length),
-        mixRow('Apartmány',st.totals.apartman,st.plochy.apartman,T2.predajnaInterior,model.units.length+model.skladUnits.length),
-        mixRow('Obchodné priestory',st.totals.obchod,st.plochy.obchod,T2.predajnaInterior,model.units.length+model.skladUnits.length),
-        mixRow('Sklady',st.totals.sklad,st.plochy.sklad,T2.predajnaInterior,model.units.length+model.skladUnits.length)
-      ];
-      var eff=card('Efektivita budovy','Podiel predajnej plochy na celkovej podlahovej ploche.',
-        '<div class="kpis">'+kpi(pct(T2.koefPredajnosti),'Koef. predajnosti')+kpi(fmt(T2.predajnaInterior),'Predajná m²')+kpi(fmt(T2.spolocneTechnicke),'Spoločné/technické m²')+kpi(fmt(T2.garaz.interior),'Garáže m²')+'</div>');
-      var mix=card('Product mix & priemerné plochy','Podiely podľa typu a priemerná/min/max podlahová plocha jednotky.',
-        makeTable(['Typ','Počet','% jednotiek','Plocha m²','% predajnej','Priemer m²','Min m²','Max m²'],mixRows));
-      return eff+mix;
-    }
+    if(key==='efektivita'){ return renderEfektivita(); }
     if(key==='povrchy'){
       function surf(title,note,arr){ var rows=arr.map(function(x){return [x.mat,x.count,fmt(x.area)];}); return card(title,note,makeTable(['Materiál','Počet miestností','Plocha m² (odhad)'],rows)); }
       return surf('Podlahy','Plocha podláh podľa materiálu (z podlahovej plochy miestností).',st.surfaces.podlaha)
@@ -2338,6 +2458,8 @@ window.APP_VERSION = '2026.08.23';
     }
     if(key==='normy'){ return renderNorms(); }
     if(key==='kontrola'){ return renderKontrola(); }
+    if(key==='oprava'){ return renderOprava(); }
+    if(key==='regulacia'){ return renderRegulacia(); }
     return '';
   }
 
@@ -2550,6 +2672,8 @@ window.APP_VERSION = '2026.08.23';
   /* ---------- panely noriem (odhady) ---------- */
   var NORM_KEY='vi_normy_v1';
   var normValues=(function(){try{return JSON.parse(localStorage.getItem(NORM_KEY)||'{}')||{};}catch(e){return {};}})();
+  var normOut={};          // posledný prepočet Noriem (napr. potreba parkovania) — číta ho Regulácia
+  var regulRecompute=null; // hák: Regulácia si sem zaregistruje svoj prepočet, aby sa prepočítal spolu s Normami
   function renderNorms(){
     var obyv='<div class="card"><h2>Počet obyvateľov</h2><p class="hint">Obyvatelia = Σ (počet bytov danej izbovosti × koeficient obložnosti) + apartmány × obložnosť. Predvolené koeficienty podľa POMOCNA / VZN.</p>'+
       '<div class="norm">'+
@@ -2613,10 +2737,123 @@ window.APP_VERSION = '2026.08.23';
         ['Sklo',fmt(val('o_sklo'),0),nad(val('o_sklo'))],
         ['BIO (bioodpad)',fmt(val('o_bio'),0),nad(val('o_bio'))]
       ],['Kočikáreň / bicykláreň m² (orient.)','',fmt(val('m_kocik')>0?os/val('m_kocik'):0,1)]);
+      normOut.obyvatelia=os; normOut.parkPotreba=N; normOut.parkKapacita=cap;
+      if(regulRecompute) regulRecompute();
     }
     ['obl_1','obl_2','obl_3','obl_4','obl_apart','pw1','pw2','pw3','pw4','pw_apart','p_m2stoj','p_ka','p_kmp','p_kd','cap','o_zko','o_papier','o_plast','o_sklo','o_bio','m_kocik'].forEach(function(id){
       var e=document.getElementById(id); if(e) e.addEventListener('input',function(){normValues[id]=this.value;try{localStorage.setItem(NORM_KEY,JSON.stringify(normValues));}catch(err){}recompute();});
     });
+    recompute();
+  }
+
+  /* ---------- Efektivita (HPP, podiely) ---------- */
+  var EFEKT_KEY='vi_efekt_v1';
+  var efektValues=(function(){try{return JSON.parse(localStorage.getItem(EFEKT_KEY)||'{}')||{};}catch(e){return {};}})();
+  function einput(id,label,def){ var v=efektValues[id]!=null?efektValues[id]:def; return '<label>'+esc(label)+'<input type="number" id="'+id+'" value="'+escAttr(v)+'" step="any" min="0"></label>'; }
+  // HPP je odhad (obrys budovy nie je v podklade) = úžitková plocha × koeficient hrubej plochy.
+  // Zdieľané s Reguláciou (FSI/GSI) — číta rovnaké DOM vstupy, žiadna duplicitná formula.
+  function currentHPP(){ var k=val('e_koef'); return (model && k>0) ? model.bilancie.uzitkova.total*k : null; }
+  function currentZastavana(){ return val('e_zastavana'); }
+
+  function renderEfektivita(){
+    var inputsCard=card('Vstupy — HPP a zastavaná plocha',
+      'HPP je len odhad: úžitková plocha × koeficient hrubej plochy (obrys budovy nie je v tomto podklade — presnú HPP treba z výkresu/GP). Zastavanú plochu zadaj ručne (napr. z geometrického plánu).',
+      '<div class="norm">'+einput('e_koef','koeficient hrubej plochy (HPP / úžitková)','1.20')+einput('e_zastavana','zastavaná plocha m² (ručne)','')+'</div><div id="efektOut"></div>');
+    var pu=model.stats.podielUnits.slice().sort(function(a,b){return b.podiel-a.podiel;});
+    var prows=pu.map(function(x){return [x.code,x.type,x.floor,fmt(x.interior),pct(x.podiel),fmt(x.podiel*1000,0)];});
+    var sInt=pu.reduce(function(a,x){return a+x.interior;},0), sPod=pu.reduce(function(a,x){return a+x.podiel;},0);
+    var podielCard=card('Spoluvlastnícke podiely',
+      'Podiel jednotky = interiér / predajná plocha (Σ ≈ 100 %). Posledný stĺpec = podiel v tisícinách, bežný zápis na liste vlastníctva.',
+      makeTable(['Kód','Typ','Podlažie','Interiér m²','Podiel %','Podiel /1000'],prows,
+        ['SPOLU ('+pu.length+')','','',fmt(sInt),pct(sPod),'']));
+    var T=model.stats.totals;
+    var mixRows=[
+      mixRow('Byty',T.byt,model.stats.plochy.byt,T.predajnaInterior,model.units.length+model.skladUnits.length),
+      mixRow('Apartmány',T.apartman,model.stats.plochy.apartman,T.predajnaInterior,model.units.length+model.skladUnits.length),
+      mixRow('Obchodné priestory',T.obchod,model.stats.plochy.obchod,T.predajnaInterior,model.units.length+model.skladUnits.length),
+      mixRow('Sklady',T.sklad,model.stats.plochy.sklad,T.predajnaInterior,model.units.length+model.skladUnits.length)
+    ];
+    var mixCard=card('Product mix & priemerné plochy','Podiely podľa typu a priemerná/min/max podlahová plocha jednotky.',
+      makeTable(['Typ','Počet','% jednotiek','Plocha m²','% predajnej','Priemer m²','Min m²','Max m²'],mixRows));
+    return inputsCard+podielCard+mixCard;
+  }
+  function wireEfekt(){
+    if(!document.getElementById('efektOut')) return;
+    function recompute(){
+      var U=model.bilancie.uzitkova.total, T=model.stats.totals;
+      var hpp=currentHPP(), predajna=T.predajnaInterior, spolocne=T.spolocneTechnicke;
+      document.getElementById('efektOut').innerHTML='<div class="kpis">'+
+        kpi(fmt(U),'Úžitková m²')+kpi(hpp!=null?fmt(hpp):'—','HPP m² (odhad)')+kpi(fmt(predajna),'Predajná m²')+
+        kpi(hpp?pct(predajna/hpp):'—','Predajná / HPP')+kpi(hpp?pct(U/hpp):'—','Úžitková / HPP')+
+        kpi(U>0?pct(spolocne/U):'—','Spoločné plochy')+'</div>';
+      if(regulRecompute) regulRecompute();
+    }
+    ['e_koef','e_zastavana'].forEach(function(id){
+      var e=document.getElementById(id); if(e) e.addEventListener('input',function(){efektValues[id]=this.value;try{localStorage.setItem(EFEKT_KEY,JSON.stringify(efektValues));}catch(err){}recompute();});
+    });
+    recompute();
+  }
+
+  /* ---------- Regulácia (min. plochy bytov, parkovanie, FSI/GSI) ---------- */
+  var REGUL_KEY='vi_regul_v1';
+  var regulValues=(function(){try{return JSON.parse(localStorage.getItem(REGUL_KEY)||'{}')||{};}catch(e){return {};}})();
+  function rinput(id,label,def){ var v=regulValues[id]!=null?regulValues[id]:def; return '<label>'+esc(label)+'<input type="number" id="'+id+'" value="'+escAttr(v)+'" step="any" min="0"></label>'; }
+
+  function renderRegulacia(){
+    var minCard=card('Minimálne plochy bytov',
+      'Porovnanie interiéru bytu s minimom podľa izbovosti. Nevyhovujúce byty (✗) sú v tabuľke nižšie.',
+      '<div class="norm">'+rinput('r_min1','min. m² 1-izb.','32')+rinput('r_min2','min. m² 2-izb.','50')+
+      rinput('r_min3','min. m² 3-izb.','68')+rinput('r_min4','min. m² 4+izb.','85')+'</div><div id="regulBytyOut"></div>');
+    var parkCard=card('Parkovanie',
+      'Potreba stojísk = prevzatá zo záložky Normy (STN 73 6110). Návrh zadaj ručne.',
+      '<div class="norm">'+rinput('r_navrh','návrh — počet státí','0')+'</div><div id="regulParkOut"></div>');
+    var fsiCard=card('FSI / GSI',
+      'Výmeru pozemku zisti z Katastra, ak ju nemáš k dispozícii. HPP a zastavaná plocha sa berú zo záložky Efektivita.',
+      '<div class="norm">'+rinput('r_pozemok','výmera pozemku m² (ručne, z Katastra)','')+
+      rinput('r_fsi_max','max. FSI (regulatív)','')+rinput('r_gsi_max','max. GSI (regulatív)','')+
+      '</div><div id="regulFsiOut"></div>');
+    return minCard+parkCard+fsiCard;
+  }
+  function wireRegulacia(){
+    if(!document.getElementById('regulBytyOut')) return;
+    function minFor(n){ return n<=1?val('r_min1'):n===2?val('r_min2'):n===3?val('r_min3'):val('r_min4'); }
+    function recompute(){
+      // min. plochy bytov
+      var byty=model.units.filter(function(u){return u.type==='BYT';});
+      var bad=[]; byty.forEach(function(u){
+        var min=minFor(u.izby||0), interior=u.interior||0;
+        if(min>0 && interior+1e-9<min) bad.push({u:u,min:min});
+      });
+      var ok=byty.length-bad.length;
+      var brows=bad.map(function(x){return [x.u.code,x.u.floor,x.u.izby==null?'—':x.u.izby,fmt(x.u.interior),fmt(x.min),raw('<span class="bad">'+fmt(x.u.interior-x.min)+'</span>')];});
+      var btbl=bad.length?makeTable(['Kód','Podlažie','Izby','Interiér m²','Min. m²','Rozdiel m²'],brows)
+        :'<div class="warnbox">Všetky byty vyhovujú minimálnej ploche.</div>';
+      document.getElementById('regulBytyOut').innerHTML='<div class="kpis">'+kpi(ok+'/'+byty.length,'Vyhovuje min. ploche')+kpi(bad.length,'Nevyhovuje (✗)')+'</div>'+btbl;
+
+      // parkovanie — potreba z Noriem (normOut), návrh ručne
+      var potreba=normOut.parkPotreba, navrh=val('r_navrh');
+      var pRows=[['Potreba (STN 73 6110, viď Normy)',potreba!=null?fmt(potreba,0):'— vyplň záložku Normy'],
+        ['Návrh (počet státí)',fmt(navrh,0)]];
+      if(potreba!=null){ var diff=navrh-potreba; pRows.push([raw('<b>Bilancia</b>'),raw(badge(diff>=0)+' '+(diff>=0?'+':'')+diff)]); }
+      document.getElementById('regulParkOut').innerHTML=makeTable(['Položka','Hodnota'],pRows);
+
+      // FSI / GSI
+      var pozemok=val('r_pozemok'), hpp=currentHPP(), zastavana=currentZastavana();
+      var fRows=[];
+      if(pozemok>0 && hpp!=null){
+        var fsi=hpp/pozemok, fsiMax=val('r_fsi_max');
+        fRows.push([raw('<b>FSI</b> (HPP / pozemok)'),raw((fsiMax>0?badge(fsi<=fsiMax)+' ':'')+fmt(fsi,2)+(fsiMax>0?' ≤ '+fmt(fsiMax,2):''))]);
+      } else { fRows.push(['FSI','— vyplň pozemok (Regulácia) a koeficient HPP (Efektivita)']); }
+      if(pozemok>0 && zastavana>0){
+        var gsi=zastavana/pozemok, gsiMax=val('r_gsi_max');
+        fRows.push([raw('<b>GSI</b> (zastavaná / pozemok)'),raw((gsiMax>0?badge(gsi<=gsiMax)+' ':'')+fmt(gsi,2)+(gsiMax>0?' ≤ '+fmt(gsiMax,2):''))]);
+      } else { fRows.push(['GSI','— vyplň pozemok a zastavanú plochu (Efektivita)']); }
+      document.getElementById('regulFsiOut').innerHTML=makeTable(['Ukazovateľ','Hodnota'],fRows);
+    }
+    ['r_min1','r_min2','r_min3','r_min4','r_navrh','r_pozemok','r_fsi_max','r_gsi_max'].forEach(function(id){
+      var e=document.getElementById(id); if(e) e.addEventListener('input',function(){regulValues[id]=this.value;try{localStorage.setItem(REGUL_KEY,JSON.stringify(regulValues));}catch(err){}recompute();});
+    });
+    regulRecompute=recompute;
     recompute();
   }
 
@@ -2639,10 +2876,86 @@ window.APP_VERSION = '2026.08.23';
     if(c.unknown.length){ notes+='<div class="warnbox"><b>Neznáme názvy miestností</b> (zaradené ako „INÉ"): '+c.unknown.map(function(u){return esc(u.name)+' ('+u.count+'×)';}).join('; ')+'</div>'; }
     if(c.noArea && c.noArea.length){ notes+='<div class="warnbox"><b>Miestnosti bez plochy ('+c.noArea.length+' názvov)</b> — over, či im plocha nechýba (napr. výťahová šachta ju nemá legitímne; inak môže chýbať v podklade/čítaní): '+c.noArea.map(function(u){return esc(u.name)+' ('+u.count+'×)';}).join('; ')+'</div>'; }
     if(c.zeroIzby.length){ notes+='<div class="warnbox"><b>Byty/apartmány s 0 izbami</b> — over: '+c.zeroIzby.map(function(z){return esc(z.code+' '+z.floor);}).join('; ')+'</div>'; }
+    if(c.gaps && c.gaps.length){ notes+='<div class="warnbox"><b>Možné medzery v číslovaní ('+c.gaps.length+')</b> — chýbajúce poradové čísla kódov, over či nevypadla miestnosť: '+c.gaps.slice(0,30).map(esc).join(', ')+(c.gaps.length>30?' …':'')+'</div>'; }
+    if(c.outliers && c.outliers.length){ notes+='<div class="warnbox"><b>Nepravdepodobné plochy ('+c.outliers.length+')</b> — obytná/hygiena/kuchyňa &gt; 300 m² (možný OCR posun desatinnej čiarky): '+c.outliers.map(function(o){return esc((o.code||'?')+' '+o.name)+' = '+fmt(o.interior)+' m²';}).join('; ')+'</div>'; }
     if(!notes) notes='<div class="warnbox">Žiadne upozornenia — všetky názvy rozpoznané, izbovosť priradená.</div>';
-    return tbl+card('Upozornenia','',notes);
+    // súhrnná karta dôveryhodnosti (index z model.checks.health)
+    var H=c.health||{level:'green',verdict:'—',floorsOk:0,floorsChecked:0,floorsBad:0,floorsNoTotal:0,unknown:0,unexpNoArea:0,gaps:0,outliers:0,autoDiscarded:0};
+    var HCOL2={green:'#2b8a3e',yellow:'#e8a90c',red:'#e03131'};
+    var hbanner='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+      '<span style="width:14px;height:14px;border-radius:50%;background:'+(HCOL2[H.level]||'#888')+';display:inline-block;flex:none"></span>'+
+      '<b style="font-size:15px">'+esc(H.verdict)+'</b></div>';
+    var htiles='<div class="kpis">'+
+      kpi(H.floorsOk+'/'+H.floorsChecked,'Overené podlažia (sedí)')+
+      kpi(H.floorsBad,'Nesedí (✗)')+kpi(H.floorsNoTotal,'Bez súčtu (?)')+
+      kpi(H.unknown,'Neznáme typy')+kpi(H.unexpNoArea,'Chýba plocha')+
+      kpi(H.gaps,'Medzery v číslach')+kpi(H.outliers,'Nepravdepodobné plochy')+
+      kpi(H.autoDiscarded,'Zahodené smetie')+'</div>';
+    var hcard=card('Index dôveryhodnosti čítania','Ako veľmi sa dá týmto číslam veriť. ✗ a nezrovnalosti môžu byť aj chyby výkresu (vytlačený súčet ≠ súčet miestností) — over v tabuľke nižšie.',hbanner+htiles);
+    return hcard+tbl+card('Upozornenia','',notes);
   }
   function badge(ok){ return ok===null?'<span class="q">?</span>':(ok?'<span class="ok">✓</span>':'<span class="bad">✗ nesedí</span>'); }
+
+  /* ---------- oprava zle prečítanej miestnosti (OCR) ---------- */
+  function roomFixInput(file,code,field,value,width){
+    return '<input type="text" class="roomfix-input" data-roomfix="1" data-file="'+escAttr(file||'')+'" data-code="'+escAttr(code||'')+'" data-field="'+field+'" value="'+escAttr(value==null?'':value)+'"'+(width?' style="width:'+width+';box-sizing:border-box"':' style="width:100%;box-sizing:border-box"')+'>';
+  }
+  function renderOprava(){
+    var c=model.checks, nr=c.needsReview||[];
+    var fixCount=Object.keys(roomFixes).reduce(function(a,f){return a+Object.keys(roomFixes[f]||{}).length;},0);
+    var resetBtn=fixCount?'<p class="hint no-print"><button class="copybtn" data-roomfixreset="1">🔄 Zabudnúť opravy ('+fixCount+')</button></p>':'';
+    var nrBody;
+    if(nr.length){
+      var nrRows=nr.map(function(r){
+        return [r.floor, r.code||'—',
+          raw(roomFixInput(r.file,r.code,'name',r.name)),
+          raw(roomFixInput(r.file,r.code,'interior',r.interior==null?'':String(r.interior).replace('.',','),'90px')),
+          r.reason];
+      });
+      nrBody=makeTable(['Podlažie','Kód','Názov','Interiér m²','Dôvod'],nrRows);
+    } else {
+      nrBody='<p class="hint">Appka nenašla žiadne podozrivé miestnosti na kontrolu.</p>';
+    }
+    var reviewCard=card('Oprava čítania — na kontrolu'+(nr.length?' ('+nr.length+')':''),
+      'Miestnosti, ktoré appka označila ako podozrivé z nesprávneho čítania (chýbajúca plocha, nepravdepodobne veľká plocha, neznámy názov). Uprav názov alebo interiér a potvrď (Enter / klik mimo políčka) — oprava sa uloží a celá analýza sa prepočíta. Oprava zostáva uložená aj po zatvorení appky (per súbor).',
+      resetBtn+nrBody);
+    var floorOpts=model.floors.map(function(fl){return '<option value="'+escAttr(fl.label)+'">'+esc(fl.label)+'</option>';}).join('');
+    var browseCtrl='<div class="filter no-print">'+
+      '<input id="oq" placeholder="hľadať (kód, názov, podlažie…)" style="min-width:220px">'+
+      '<select id="ofloor"><option value="">všetky podlažia</option>'+floorOpts+'</select>'+
+      '</div><div id="otbl"></div>';
+    var browseCard=card('Všetky miestnosti','Prehľadaj a oprav ktorúkoľvek miestnosť — nielen tie na kontrolu vyššie.',browseCtrl);
+    return reviewCard+browseCard;
+  }
+  function allRoomsList(){
+    return model.rooms.map(function(r){
+      return {file:r.file||'', floor:r.floor, code:r.code, name:r.name, interior:r.interior, exterior:r.exterior, cat:r.cat};
+    });
+  }
+  function wireOpravaFilter(){
+    var holder=document.getElementById('otbl'); if(!holder) return;
+    var data=allRoomsList();
+    function row(r){
+      return [r.floor, r.code||'—',
+        raw(roomFixInput(r.file,r.code,'name',r.name)),
+        raw(roomFixInput(r.file,r.code,'interior',r.interior==null?'':String(r.interior).replace('.',','),'90px')),
+        raw(roomFixInput(r.file,r.code,'exterior',r.exterior==null?'':String(r.exterior).replace('.',','),'90px')),
+        r.cat];
+    }
+    function draw(){
+      var q=(document.getElementById('oq').value||'').toLowerCase();
+      var fl=document.getElementById('ofloor').value;
+      var f=data.filter(function(r){
+        if(fl && r.floor!==fl) return false;
+        if(!q) return true;
+        return ((r.code||'')+' '+r.name+' '+r.floor).toLowerCase().indexOf(q)>=0;
+      });
+      holder.innerHTML=makeTable(['Podlažie','Kód','Názov','Interiér m²','Exteriér m²','Kategória'],f.map(row));
+    }
+    document.getElementById('oq').addEventListener('input',draw);
+    document.getElementById('ofloor').addEventListener('change',draw);
+    draw();
+  }
 
   /* ---------- export XLSX (cez fflate) ---------- */
   function colL(n){var s='';n++;while(n>0){var m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
@@ -2867,6 +3180,17 @@ window.APP_VERSION = '2026.08.23';
     if(!k.ku) k.ku = (lastRozpiska.ku || lastRozpiska.miesto || '');   // k.ú. z rozpisky (fallback miesto)
     ekSave(); ekRerender();
   }
+  // Vymaže VŠETKY parcely a načíta nanovo z aktuálnej rozpisky + VŽDY obnoví k.ú. (na rozdiel od
+  // „Načítať z rozpisky", ktoré len dopĺňa a k.ú. nechá). Po zmene podkladu = čistý reload.
+  function ekKatReload(){
+    var p=ekActive(), k=ekKat(p);
+    if(!lastRozpiska || !lastRozpiska.parcels){ alert('Zatiaľ nemám rozpisku. Nahraj hore výkres/PDF s rohovou pečiatkou — parcely sa z nej vytiahnu.'); return; }
+    var nums=ekKatParseNumbers(lastRozpiska.parcels);
+    if(!nums.length){ alert('V rozpiske sa nenašli parcelné čísla.'); return; }
+    k.rows=[]; nums.forEach(function(n){ k.rows.push({number:n}); });
+    if(lastRozpiska.ku || lastRozpiska.miesto) k.ku = lastRozpiska.ku || lastRozpiska.miesto;   // VŽDY obnov k.ú.
+    ekSave(); ekRerender();
+  }
   function ekKatLookup(){
     var p=ekActive(), k=ekKat(p);
     var rows=k.rows.filter(function(r){ return r.number; });
@@ -2929,6 +3253,7 @@ window.APP_VERSION = '2026.08.23';
         '<button class="btn" data-ekact="katlookup">🔎 Vyhľadať v katastri</button>'+
         '<button class="btn sec" data-ekact="katadd">+ Pridať parcelu</button>'+
         '<button class="btn sec'+(rozp?'':' ')+'" data-ekact="katrozp"'+(rozp?'':' disabled title="Zatiaľ bez rozpisky — nahraj výkres/PDF s pečiatkou"')+'>↺ Načítať z rozpisky'+(rozp?' ('+rozp+')':'')+'</button>'+
+        '<button class="btn sec" data-ekact="katreload"'+(rozp?'':' disabled title="Zatiaľ bez rozpisky"')+' title="Vymaže všetky parcely a načíta nanovo z rozpisky vrátane k.ú.">🗑️ Vymazať a načítať nanovo</button>'+
       '</div>'+
       (k.rows.length? ('<table><thead><tr><th>Parcela</th><th>Výmera</th><th>Druh pozemku</th><th>Kat. územie</th><th>LV / portál</th><th class="no-print"></th></tr></thead><tbody>'+rows+'</tbody></table>')
                     : '<p class="hint" style="margin-top:8px">Žiadne parcely. Pridaj ručne alebo načítaj z rozpisky.</p>')+
@@ -3027,6 +3352,13 @@ window.APP_VERSION = '2026.08.23';
     var k=ekKonk(ekActive());
     if(!k.url || !/^https?:\/\//i.test(k.url.trim())){ alert('Vlož platný odkaz (http/https) na stránku konkurencie.'); return; }
     ekKonkFetch('url='+encodeURIComponent(k.url.trim()), 'Načítavam stránku konkurencie…');
+  }
+  // Obnoví lokalitu konkurencie z aktuálnej rozpisky (miesto stavby, fallback k.ú.) — VŽDY prepíše.
+  function ekKonkReload(){
+    var k=ekKonk(ekActive());
+    if(!lastRozpiska || !(lastRozpiska.miesto||lastRozpiska.ku)){ alert('Zatiaľ nemám rozpisku s miestom stavby. Nahraj hore výkres/PDF s rohovou pečiatkou.'); return; }
+    k.miesto = lastRozpiska.miesto || lastRozpiska.ku;
+    ekSave(); ekRerender();
   }
 
   /* ---------- UI ---------- */
@@ -3410,6 +3742,7 @@ window.APP_VERSION = '2026.08.23';
         '<b style="font-size:13px">🌐 Načítať z internetu:</b>'+
         '<label>Zdroj: <select data-ek="konk" data-f="zdroj" style="padding:4px"><option value="flatscraper"'+((kk.zdroj||'flatscraper')==='flatscraper'?' selected':'')+'>flatscraper (€/m²)</option><option value="bratislavaliving"'+(kk.zdroj==='bratislavaliving'?' selected':'')+'>bratislavaliving (BA, aj pred predajom)</option></select></label>'+
         '<label>Lokalita: <input type="text" data-ek="konk" data-f="miesto" value="'+escAttr(kk.miesto||'')+'" placeholder="napr. Vysoké Tatry" style="width:150px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:5px;font:inherit"></label>'+
+        '<button class="btn sec" data-ekact="konkrozp" title="Nastav lokalitu z pečiatky výkresu (miesto stavby / k.ú.)">↺ Z rozpisky</button>'+
         '<button class="btn" data-ekact="konkweb">Podľa lokality</button>'+
         '<span style="color:#94a3b8">alebo</span>'+
         '<label>Odkaz: <input type="text" data-ek="konk" data-f="url" value="'+escAttr(kk.url||'')+'" placeholder="https://… stránka projektu" style="width:220px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:5px;font:inherit"></label>'+
@@ -3510,7 +3843,7 @@ window.APP_VERSION = '2026.08.23';
     var b=e.target.closest && e.target.closest('[data-ekact]'); if(!b) return;
     var act=b.getAttribute('data-ekact'); if(act==='switch') return;
     var p=ekActive();
-    if(act==='new'){ var np=ekBlankProject(); EK.projects[np.id]=np; EK.active=np.id; ekSave(); ekRerender(); }
+    if(act==='new'){ var np=ekPanoramaProject(); np.name='Nový projekt'; EK.projects[np.id]=np; EK.active=np.id; ekSave(); ekRerender(); }  // predvyplnený podľa vzoru (Panorama), nie prázdny
     else if(act==='dup'){ var d=JSON.parse(JSON.stringify(p)); d.id=ekUid('proj'); d.name=(p.name||'Projekt')+' (kópia)'; EK.projects[d.id]=d; EK.active=d.id; ekSave(); ekRerender(); }
     else if(act==='rename'){ var nm=prompt('Názov projektu:', p.name||''); if(nm!=null){ p.name=nm; ekSave(); ekRerender(); } }
     else if(act==='del'){ if(Object.keys(EK.projects).length<=1){ alert('Musí zostať aspoň jeden projekt.'); return; } if(confirm('Zmazať projekt „'+(p.name||'')+'“?')){ delete EK.projects[EK.active]; EK.active=Object.keys(EK.projects)[0]; ekSave(); ekRerender(); } }
@@ -3526,8 +3859,10 @@ window.APP_VERSION = '2026.08.23';
     else if(act==='katdel'){ var ki=+b.getAttribute('data-idx'); ekKat(p).rows.splice(ki,1); ekSave(); ekRerender(); }
     else if(act==='katrozp'){ ekKatFromRozpiska(); }
     else if(act==='katlookup'){ ekKatLookup(); }
+    else if(act==='katreload'){ ekKatReload(); }
     else if(act==='konkweb'){ ekKonkWeb(); }
     else if(act==='konkurl'){ ekKonkUrl(); }
+    else if(act==='konkrozp'){ ekKonkReload(); }
     else if(act==='ekxlsx'){ ekExportXlsx(); }
     else if(act==='ekprint'){ window.print(); }
   }
