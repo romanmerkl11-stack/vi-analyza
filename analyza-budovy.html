@@ -1420,10 +1420,13 @@ window.APP_VERSION = '2026.11.20';
           interior: (interior != null ? interior : null),
           hasOwnArea: (interior != null),
           exterior: 0, izby: (residential ? 0 : null), rooms: 0, spaciKut: 0
-          , _roomInt: 0
+          , _roomInt: 0, podlaha: podlaha, steny: steny, strop: strop
         };
         floor.units.push(unit);
-        openUnit = unit;
+        // riadok jednotky s VLASTNOU plochou aj materiálom podlahy (Gerlach 1PP: „NEBYTOVÝ
+        // PRIESTOR 1  50,74  VSYP") je samostatný priestor, nie hlavička skupiny — ďalšie
+        // riadky (kobky, garáž) mu nepatria
+        openUnit = (interior != null && podlaha && podlaha !== '-') ? null : unit;
         continue;
       }
 
@@ -2028,7 +2031,15 @@ window.APP_VERSION = '2026.11.20';
     var floorTot = {};   // so|floor -> {interior, celkova}
     (model.floors || []).forEach(function (fl) {
       var so = fl.so || null;
-      (fl.rooms || []).forEach(function (r) {
+      // jednotka s vlastnou plochou a bez miestností (NEBYTOVÝ PRIESTOR 1 v 1PP) je v legende
+      // jeden riadok s materiálom — pre povrchy je to miestnosť
+      var unitRows = (fl.units || []).filter(function (u) {
+        return u.hasOwnArea && !u.rooms && u.interior && u.podlaha;
+      }).map(function (u) {
+        return { code: u.code, name: u.name, interior: u.interior, exterior: 0, podlaha: u.podlaha,
+                 steny: u.steny, block: u.block, unitCode: u.code, cat: u.type, so: u.so };
+      });
+      (fl.rooms || []).concat(unitRows).forEach(function (r) {
         var area = r2p((r.interior || 0) + (r.exterior || 0));
         var mat = povrchMat(r.podlaha);
         var objKey = r.so || so || r.block || '—';
@@ -2039,6 +2050,8 @@ window.APP_VERSION = '2026.11.20';
         if (exc) {
           excluded.push({ so: objKey, floor: fl.label, code: r.code, name: r.name, mat: mat, area: area, dovod: exc });
           if (exc === 'VSYP') ft.vsyp = r2p(ft.vsyp + area); else ft.zel = r2p(ft.zel + area);
+          // VSYP (garáž, kobky) je v PODL. PLOCHE CELKOVEJ — do kontroly sa započíta
+          if (r.interior) ft.vynechInt = r2p((ft.vynechInt || 0) + r2p(r.interior));
           return;
         }
         if (!area) return;
@@ -2092,8 +2105,9 @@ window.APP_VERSION = '2026.11.20';
     var kontrola = Object.keys(floorTot).map(function (k) { return floorTot[k]; }).filter(function (f) {
       return f.interior || f.exterior || f.vsyp || f.zel;
     }).map(function (f) {
-      f.diff = (f.celkova == null) ? null : r2p(f.interior - f.celkova);
-      f.ok = (f.diff == null) ? null : Math.abs(f.diff) <= 0.05;
+      f.diff = (f.celkova == null) ? null : r2p(f.interior + (f.vynechInt || 0) - f.celkova);
+      // tolerancia 0,10: výkres sčítava zaokrúhlené medzisúčty (PODLAHOVÁ PLOCHA), my miestnosti
+      f.ok = (f.diff == null) ? null : Math.abs(f.diff) <= 0.10;
       return f;
     }).sort(function (a, b) {
       return (a.so < b.so ? -1 : a.so > b.so ? 1 : 0) || a.level - b.level;
@@ -2695,7 +2709,7 @@ window.APP_VERSION = '2026.11.20';
     var trows=P.byTyp.map(function(e){ return [e.key.typ,e.key.mat,e.count].concat(so.map(function(x){return fmt(e.so[x]||0);})).concat([fmt(e.total)]); });
     var krows=P.kontrola.map(function(k){
       var st=k.ok===null?'—':(k.ok?'OK':'NESEDÍ');
-      return [soLbl(k.so),k.floor,fmt(k.interior),k.celkova==null?'—':fmt(k.celkova),k.diff==null?'—':fmt(k.diff),fmt(k.exterior),fmt(k.vsyp),fmt(k.zel),raw('<b style="color:'+(k.ok===false?'#c92a2a':'inherit')+'">'+st+'</b>')];
+      return [soLbl(k.so),k.floor,fmt(k.interior+(k.vynechInt||0)),k.celkova==null?'—':fmt(k.celkova),k.diff==null?'—':fmt(k.diff),fmt(k.exterior),fmt(k.vsyp),fmt(k.zel),raw('<b style="color:'+(k.ok===false?'#c92a2a':'inherit')+'">'+st+'</b>')];
     });
     return card('Povrchy — podklad na tender podláh a obkladov',
         'Z legendy miestností (stĺpce PODLAHA / STENY). Zarátané je všetko okrem VSYP; zeleň (ZEL.) do zošita nejde. Materiál sa berie celý ako vo výkrese („GRES, NAT.1" je jeden materiál).',
@@ -2705,7 +2719,7 @@ window.APP_VERSION = '2026.11.20';
         + '<div style="margin-top:8px"></div>'+makeTable(['Obklad stien'].concat(hdrSo).concat(['Spolu m²']),orow))
       + card('Obklad KER.O. — odhad','⚠ Legenda nemá obvod miestnosti. Obvod je odhad z plochy pri pomere strán 1:'+O.pomerStran+', × výška '+O.obkladVyska+' m, − 1 dvere '+O.dvereSirka+' m. Presná výmera len z geometrie výkresu (DXF).','')
       + card('Podľa typu miestnosti × materiál','',makeTable(['Typ miestnosti','Materiál','Počet'].concat(hdrSo).concat(['Spolu m²']),trows))
-      + card('Kontrola proti výkresu','Interiér zarátaných miestností vs. PODL. PLOCHA CELKOVÁ z legendy (po objekte a podlaží). Exteriér a vynechané plochy sú v CELKOVEJ mimo.',
+      + card('Kontrola proti výkresu','Interiér miestností (zarátané + vynechaný VSYP, ktorý v CELKOVEJ je) vs. PODL. PLOCHA CELKOVÁ z legendy, po objekte a podlaží. Exteriér v CELKOVEJ nie je.',
         makeTable(['Objekt','Podlažie','Interiér m²','CELKOVÁ výkres m²','Rozdiel','Exteriér m²','VSYP m²','ZEL. m²','Stav'],krows))
       + (P.noMat?card('','','<div class="warnbox">'+P.noMat+' miestností nemá v legende materiál podlahy — v zošite sú ako „(bez materiálu)“.</div>'):'');
   }
@@ -2753,16 +2767,17 @@ window.APP_VERSION = '2026.11.20';
       row.push({f:'SUM(D'+r+':'+C(nS+2)+r+')', v:e.total}); typ.push(row);
     });
     // Kontrola
-    var kon=[['Objekt','Podlažie','Interiér m² (z Detailu)','CELKOVÁ výkres m²','Rozdiel','Stav','Exteriér m²','VSYP m² (vynechané)','ZEL. m² (mimo zošita)']];
+    function r2x(x){ return Math.round(x*100+1e-6)/100; }
+    var kon=[['Objekt','Podlažie','Interiér m² (Detail + VSYP)','CELKOVÁ výkres m²','Rozdiel','Stav','Exteriér m²','VSYP interiér m² (vynechané)','ZEL. m² (mimo zošita)']];
     P.kontrola.forEach(function(k,i){
       var r=i+2;
       kon.push([soLbl(k.so),k.floor,
-        {f:'SUMIFS('+rng('I')+','+rng('A')+',$A'+r+','+rng('B')+',$B'+r+','+rng('J')+',"interiér")', v:k.interior},
+        {f:'SUMIFS('+rng('I')+','+rng('A')+',$A'+r+','+rng('B')+',$B'+r+','+rng('J')+',"interiér")+H'+r, v:r2x(k.interior+(k.vynechInt||0))},
         k.celkova==null?'':N(k.celkova),
         k.celkova==null?'':{f:'ROUND(C'+r+'-D'+r+',2)', v:k.diff},
-        k.celkova==null?'—':{f:'IF(ABS(E'+r+')<=0.05,"OK","NESEDÍ")', v:null},
+        k.celkova==null?'—':{f:'IF(ABS(E'+r+')<=0.1,"OK","NESEDÍ")', v:null},
         {f:'SUMIFS('+rng('I')+','+rng('A')+',$A'+r+','+rng('B')+',$B'+r+','+rng('J')+',"exteriér")', v:k.exterior},
-        N(k.vsyp),N(k.zel)]);
+        N(k.vynechInt||0),N(k.zel)]);
     });
     var O=P.opts;
     var pred=[['Predpoklady',''],

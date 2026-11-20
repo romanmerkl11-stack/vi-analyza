@@ -28,7 +28,7 @@ LEFT = [
     ('5.1.02', 'SPOLOČNÁ CHODBA', '22,10', 'KOBEREC', 'OMIET.'),
     ('9.B.-1.01', 'VÝŤAHOVÁ ŠACHTA', '4,00', 'HI.N.', '-'),
     ('5.1.03', 'VSYP', '3,00', 'VSYP', '-'),
-    ('SUB', 'PODLAHOVÁ PLOCHA', '44,50', '', ''),
+    ('SUB', 'PODLAHOVÁ PLOCHA', '47,50', '', ''),
     ('7.B.1.04.', 'BYT 2-IZB.', None, '', ''),
     ('1.01', 'PREDSIEŇ', '5,20', 'LAMINO', 'OMIET.'),
     ('1.02', 'KÚPEĽŇA', '4,30', 'KER.DL.', 'KER.O.'),
@@ -40,13 +40,13 @@ LEFT = [
     ('1.02', 'WC', '1,50', 'KER.DL.', 'KER.O.'),
     ('1.03', 'ZÁVETRIE', '2,00', 'GRES M.', '-'),
     ('SUB', 'PODLAHOVÁ PLOCHA', '21,50', '', ''),
-    ('TOT', 'PODL. PLOCHA CELKOVÁ', '90,50', '', ''),
+    ('TOT', 'PODL. PLOCHA CELKOVÁ', '93,50', '', ''),
 ]
 RIGHT = [
     ('7A.1.01', 'SKLAD', '3,25', 'BET.DL.', '-'),
     ('TOT', 'PODL. PLOCHA CELKOVÁ', '3,25', '', ''),
 ]
-EXPECT_TOTAL = 93.75   # 90,50 + 3,25
+EXPECT_TOTAL = 96.75   # 93,50 + 3,25 (VSYP = interiér, je v CELKOVEJ)
 
 
 def _draw_legend(chars, x0, top, rows, rnd):
@@ -105,7 +105,7 @@ def test_positional():
     assert codes[:4] == ['5.1.01', '5.1.02', '9.B.-1.01', '5.1.03'], codes
     assert '7.B.1.04.' in codes and codes.count('1.01') == 2, codes
     # stĺpec pokračuje pod CELKOVÁ pravého stĺpca → posledná CELKOVÁ ľavého je prečítaná
-    assert left[-1]['kind'] == 'total' and left[-1]['area'] == 90.5, left[-1]
+    assert left[-1]['kind'] == 'total' and left[-1]['area'] == 93.5, left[-1]
     sch = left[0]
     assert sch['name'] == 'SCHODISKO' and sch['area'] == 18.4 and sch['podlaha'] == 'GRES, NAT.1', sch
     units = [r for r in left if r['kind'] == 'unit']
@@ -126,7 +126,7 @@ def test_positional():
     assert byname['BALKÓN'][3] == '6,00' and byname['BALKÓN'][2] == ''   # exteriér
     assert byname['ZÁVETRIE'][3] == '2,00'                               # GRES M. → exteriér
     assert any('BLOK ""7A"" - SO 7-8' in ln or 'BLOK "7A" - SO 7-8' in ln for ln in csvt.splitlines()), csvt
-    assert 'PODL. PLOCHA CELKOVA";"93,75"' in csvt, csvt
+    assert 'PODL. PLOCHA CELKOVA";"96,75"' in csvt, csvt
 
 
 def test_objects_from_name():

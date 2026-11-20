@@ -510,12 +510,11 @@ def _pos_row(anchor, g, ax, px, sx, tx):
 
 
 def is_exterior_pos(name, podlaha=''):
-    """Exteriér pre polohový parser: názov (balkón/terasa/loggia/závetrie/predzáhradka),
-    mrazuvzdorná dlažba GRES M. (balkóny, terasy, loggie, závetria) alebo VSYP (štrkový
-    vsyp okolo objektu — nie je podlahová plocha, nezapočítava sa do PODLAHOVEJ PLOCHY)."""
-    dp = deburr(podlaha)
-    return (is_exterior(name) or 'ZAVETR' in deburr(name) or dp.startswith('GRES M')
-            or dp.startswith('VSYP') or deburr(name).startswith('VSYP'))
+    """Exteriér pre polohový parser: názov (balkón/terasa/loggia/závetrie/predzáhradka)
+    alebo mrazuvzdorná dlažba GRES M. (balkóny, terasy, loggie, závetria).
+    VSYP (garáž, kobky v 1PP) je INTERIÉR — je v PODL. PLOCHE CELKOVEJ; z výkazu povrchov
+    sa vynecháva až v appke (záložka Povrchy)."""
+    return is_exterior(name) or 'ZAVETR' in deburr(name) or deburr(podlaha).startswith('GRES M')
 
 
 def objects_from_name(fname):
@@ -596,7 +595,8 @@ def positional_check(cols):
             elif r['kind'] == 'sub':
                 if r['area'] is not None:
                     seg_subs += r['area']; seg_has_sub = True
-                if cur is not None and r['area'] is not None and abs(r2(cur_sum) - r['area']) > 0.02:
+                # tolerancia 0,05: výkres sám zaokrúhľuje (Gerlach SO 5 podkr.: izby 84,66 vs. 84,68)
+                if cur is not None and r['area'] is not None and abs(r2(cur_sum) - r['area']) > 0.05:
                     bad_units.append({'code': cur, 'sum': r2(cur_sum), 'printed': r['area']})
                 cur, cur_sum = None, 0.0
             elif r['kind'] == 'unit':
