@@ -35,7 +35,20 @@ Stabilná URL `…/releases/latest/download/<súbor>` vždy ukazuje na najnovš�
    → `Vi-Analyza-Launcher.exe` (~8–10 MB) = TOTO posielaš PM.
 4. `gh auth login` (raz, na stroji kde publikuješ).
 
-## Publikovanie aktualizácie
+## Publikovanie aktualizácie — automaticky (aj z telefónu)
+
+Workflow `.github/workflows/release.yml` vydá release sám:
+
+- **po merge PR do `main`** (GitHub appka na telefóne: PR → *Merge*), keď sa zmenila appka
+  alebo `tools/`,
+- **ručne:** GitHub appka → repo → *Actions* → **Vydať release** → *Run workflow*
+  (voliteľne text do okna „Čo je nové“, riadky oddelené `|`).
+
+Verzia = `window.APP_VERSION` v `analyza-budovy.html`. Ak release s touto verziou už existuje,
+nič sa nevydá → pri zmene treba zvýšiť `APP_VERSION`. Runtime `Vi-Analyza.exe` sa prenesie
+z posledného releasu (aj s verziou `rN`); nový runtime sa stále publikuje ručne (nižšie).
+
+## Publikovanie aktualizácie — ručne (počítač)
 
 1. (Ak sa menil runtime — nová závislosť / OCR / `server.py`) prebuild `Vi-Analyza.exe`
    podľa `docs/windows-build.md` a stúpni `--runtime-version`.
