@@ -1,0 +1,94 @@
+# Vydanie releasu pre auto-update launcher — bez počítača (aj z GitHub appky na telefóne).
+#
+# Spustí sa:
+#   - sám po každom pushi / merge PR do main, keď sa zmenila appka alebo nástroje,
+#   - ručne: Actions → „Vydať release" → Run workflow (dá sa pridať text do okna „Čo je nové").
+#
+# Verzia = window.APP_VERSION v analyza-budovy.html (launcher a appka ju musia mať rovnakú).
+# Ak release s touto verziou už existuje, nič sa nevydá — pri zmene treba zvýšiť APP_VERSION.
+# Runtime Vi-Analyza.exe (Python + PDF + OCR) sa nemení: prenesie sa z posledného releasu
+# aj s jeho verziou (rN). Nový runtime sa stále builduje na Windowse (docs/windows-build.md).
+name: Vydať release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - analyza-budovy.html
+      - tools/**
+      - .github/workflows/release.yml
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: 'Čo je nové (riadky oddeľ znakom |). Prázdne = názvy commitov od minulého releasu.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verzia z appky
+        id: ver
+        run: |
+          VER=$(grep -oP "window\.APP_VERSION = '\K[^']+" analyza-budovy.html)
+          if [ -z "$VER" ]; then echo "::error::APP_VERSION sa v analyza-budovy.html nenašla"; exit 1; fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VER" >/dev/null 2>&1; then
+            echo "exists=1" >> "$GITHUB_OUTPUT"
+            echo "::notice::Release v$VER už existuje — nič sa nevydáva. Pri zmene zvýš APP_VERSION v analyza-budovy.html."
+          fi
+
+      - name: Runtime z posledného releasu
+        if: steps.ver.outputs.exists != '1'
+        id: rt
+        run: |
+          PREV=$(gh release view --json tagName -q .tagName)
+          echo "prev=$PREV" >> "$GITHUB_OUTPUT"
+          gh release download "$PREV" -p Vi-Analyza.exe -p manifest.json -D prev
+          RTV=$(python3 -c "import json;print(json.load(open('prev/manifest.json'))['runtime']['version'])")
+          echo "runtime_version=$RTV" >> "$GITHUB_OUTPUT"
+          echo "Runtime $RTV z $PREV"
+
+      - name: Čo je nové
+        if: steps.ver.outputs.exists != '1'
+        id: notes
+        env:
+          INPUT_NOTES: ${{ github.event.inputs.notes }}
+          PREV: ${{ steps.rt.outputs.prev }}
+        run: |
+          if [ -n "$INPUT_NOTES" ]; then
+            printf '%s\n' "$INPUT_NOTES" | tr '|' '\n' > notes.txt
+          elif git rev-parse -q --verify "refs/tags/$PREV" >/dev/null; then
+            git log "$PREV"..HEAD --no-merges --format=%s | head -15 > notes.txt
+          else
+            git log -10 --no-merges --format=%s > notes.txt
+          fi
+          cat notes.txt
+
+      - name: Manifest a vydanie
+        if: steps.ver.outputs.exists != '1'
+        env:
+          VER: ${{ steps.ver.outputs.version }}
+          RTV: ${{ steps.rt.outputs.runtime_version }}
+        run: |
+          python3 tools/build_release.py --version "$VER" --runtime prev/Vi-Analyza.exe \
+            --runtime-version "$RTV" --notes-file notes.txt --out manifest.json
+          gh release create "v$VER" prev/Vi-Analyza.exe analyza-budovy.html \
+            tools/pdf_legend.py tools/kataster.py tools/konkurencia.py tools/ocr_win.py \
+            tools/krivky_na_text.py tools/znaky.json manifest.json \
+            --title "Vi-Analyza $VER" --notes "auto-update" --target "$GITHUB_SHA"
+          echo "::notice::Vydaný release v$VER — launcher si ho stiahne pri ďalšom spustení."
