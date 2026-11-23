@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="sk"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Register výkresov | Portál výstavby</title>
+<style>
+:root{color-scheme:light;--ink:#172a26;--muted:#49645c;--edge:#d6e2dd;--green:#145748;--paper:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:#eef3f1;color:var(--ink);font:15px/1.5 system-ui,sans-serif}
+main{max-width:1080px;margin:auto;padding:24px}
+header{padding:24px 28px;background:#123e37;color:white;border-radius:16px}
+header p{color:#d8ece7;margin:0} h1,h2,h3,p{margin:0 0 10px}
+section,details{margin-top:16px;padding:20px;border:1px solid var(--edge);border-radius:12px;background:var(--paper)}
+section[id],details[id]{scroll-margin-top:16px}
+section details,form details{padding:12px 14px;background:#f8fbfa}
+summary{cursor:pointer;font-weight:700} summary+*{margin-top:12px}
+fieldset{border:0;margin:0;padding:0;min-inline-size:0}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:end}
+#basicGrid{grid-template-columns:repeat(6,minmax(0,1fr));align-items:stretch}
+#basicGrid>label:nth-child(-n+2){grid-column:span 3}
+#basicGrid>label:nth-child(n+3){grid-column:span 2}
+#basicGrid>label{grid-template-rows:1fr 44px}
+label{display:grid;gap:6px;min-width:0;font-weight:600;align-content:end}
+input,select,button{font:inherit;color:var(--ink);border:1px solid #879d96;border-radius:8px;background:white;min-width:0}
+input:not([type=checkbox]),select{height:44px;width:100%;padding:0 10px}
+button{min-height:44px;padding:8px 14px;cursor:pointer;font-weight:650}
+button.primary{background:var(--green);color:white;border-color:var(--green)}
+button:hover{filter:brightness(.95)}button:disabled{opacity:.55;cursor:default}
+input[type=checkbox]{accent-color:var(--green);width:18px;height:18px;margin:2px 0 0}
+label:has(>input[type=checkbox]){display:grid;grid-template-columns:18px minmax(0,1fr);align-items:start;align-content:start;column-gap:10px}
+label:has(>input[type=checkbox])>input{grid-column:1;grid-row:1}
+label:has(>input[type=checkbox])>span,label:has(>input[type=checkbox])>small{grid-column:2}
+#wizardPackages label,#wizardFeatures label{font-weight:500;padding:8px}
+#wizardPackages,#wizardFeatures{align-items:start}
+.actions,.quick-links{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.quick-links a,.steps li{padding:7px 10px;border-radius:8px;background:#e0ece8;font-weight:650}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;list-style:none;padding:0;margin:12px 0 18px}
+.steps li[aria-current=step]{background:var(--green);color:white}
+.wizard-panel{min-height:170px}
+.wizard-actions{padding-top:12px;border-top:1px solid var(--edge);margin-top:16px}
+.scroll{overflow:auto}table{border-collapse:collapse;width:100%;min-width:600px;table-layout:fixed}
+th,td{text-align:left;padding:10px;border-bottom:1px solid var(--edge);vertical-align:top;overflow-wrap:anywhere}
+th:nth-child(2){width:42%}td small,td code{display:block} td button{font-size:.88rem}
+code{overflow-wrap:anywhere;color:#124d40} a{color:#07594a} small{color:var(--muted);font-size:.85rem}
+#status,#projectStatus,#wizardNotice{color:#7d3508;min-height:1.5em;margin:8px 0 0}
+#classSuggestions .actions{padding:6px 0}
+#portalForm{display:grid;grid-template-columns:minmax(0,250px) auto;align-items:end;justify-content:start;gap:8px 10px;margin:12px 0}
+#portalForm .actions{margin:0} #portalHint{grid-column:1/-1;margin:0}
+:focus-visible{outline:3px solid #0b7460;outline-offset:2px}
+[hidden]{display:none!important}
+footer{margin:20px 0} ol,ul{padding-left:1.4em}
+@media(max-width:680px){main{padding:12px}section,details,header{padding:14px}.grid,#basicGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#basicGrid>label:nth-child(n){grid-column:auto}#basicGrid>label:nth-child(-n+2){grid-column:1/-1}.steps li{font-size:.8rem;padding:7px 5px}#portalForm{grid-template-columns:minmax(0,1fr) auto}}
+@media(max-width:400px){.grid{grid-template-columns:1fr}}
+</style>
+<main>
+<header><h1>Register výkresov</h1><p>Začni interným názvom. ID stavby doplníš pri odovzdaní.</p></header>
+<nav class="quick-links" aria-label="Rýchla navigácia"><a href="#wizard">Sprievodca</a><a href="#project-settings">Nastavenia</a><a href="#dst-panel">Načítať DST</a><a href="#add-drawing">Pridať výkres</a><a href="#register">Register</a><a href="#dwg-guide">Pomoc s DWG</a></nav><section id="wizard"><h2>Sprievodca založením projektu</h2>
+<ol class="steps" aria-label="Kroky sprievodcu"><li>1. Údaje projektu</li><li>2. Rozsah</li><li>3. Kontrola</li></ol><form id="wizardForm"><fieldset class="wizard-panel" id="wizardBasics"><div class="grid" id="basicGrid">
+<label>Interný názov<input name="name" required maxlength="100" placeholder="Názov projektu"></label><label>Stupeň projektovej dokumentácie<select name="stage" id="wizardStage"></select></label>
+<label>Nadzemné podlažia hlavného objektu<input name="above" type="number" required min="0" max="99" value="4"></label>
+<label>Podzemné podlažia hlavného objektu<input name="below" type="number" required min="0" max="99" value="2"></label>
+<label>Stavebné objekty vrátane hlavného<input name="count" type="number" required min="1" max="99" value="1"></label>
+</div>
+</fieldset><fieldset class="wizard-panel" id="wizardScope" hidden><h3>Rozsah dokumentácie</h3><p id="wizardStageHelp"></p><details id="objectOptions"><summary>Objekty a ich profesie</summary><div id="wizardObjects" class="grid"></div></details>
+<details><summary>Rozsah výkresov a profesie</summary><div class="grid">
+<label>Situácie stavby<input name="situations" type="number" required min="0" max="99"></label>
+<label>Rezy hlavného objektu<input name="sections" type="number" required min="0" max="99"></label>
+<label>Pohľady hlavného objektu<input name="elevations" type="number" required min="0" max="99"></label>
+<label><span>Strecha</span><input name="roof" type="checkbox"></label>
+<label><span>Detail alebo skladby</span><input name="detail" type="checkbox"></label>
+<label><span>Výkazy výrobkov a výmer</span><input name="schedules" type="checkbox"></label>
+<label><span>Pôdorysy elektroinštalácie</span><input name="electric" type="checkbox"></label>
+</div></details>
+<label>Typ stavby<input name="buildingType" id="wizardType" list="wizardTypeList" placeholder="Napíš, napr. bytový dom s 12 bytmi" maxlength="240" autocomplete="off"></label><datalist id="wizardTypeList"></datalist><small id="wizardTypeHint" style="display:block;margin:4px 0 12px"></small><input type="hidden" name="profile" id="wizardProfile" value="general"><details><summary>Technické vybavenie</summary><p>Zaškrtni, čo je súčasťou projektu alebo čo treba posúdiť.</p><div id="wizardFeatures" class="grid"></div></details><details id="packageOptions"><summary>Profesie a prílohy <span id="packageCount"></span></summary><div id="wizardPackages" class="grid"></div><p><a href="https://static.slov-lex.sk/static/SK/ZZ/2025/60/20250401.print.html#prilohy">Rozsah dokumentácie podľa vyhlášky 60/2025</a> · <a href="https://static.slov-lex.sk/static/SK/ZZ/2025/251/vyhlasene_znenie.print.html">Rozsah požiarneho riešenia podľa vyhlášky 251/2025</a></p></details></fieldset><fieldset class="wizard-panel" id="wizardReview" hidden><div id="wizardPreview"></div></fieldset><p id="wizardNotice" role="status"></p><div class="actions wizard-actions"><button type="button" id="wizardBack" hidden>Späť</button><button class="primary" id="wizardNext">Pokračovať na rozsah</button></div></form></section><details id="project-settings"><summary>Nastavenia projektu a trieda stavby</summary>
+<form id="project"><div class="grid">
+<label>Interný názov<input name="name" placeholder="Názov projektu" maxlength="100" required></label>
+<input type="hidden" name="portal">
+<label>Stupeň dokumentácie<select name="stage" id="stage"></select></label>
+</div><label>Na čo bude stavba slúžiť?<input id="classQuery" placeholder="Napr. bytový dom s 12 bytmi" maxlength="240"></label><div id="classSuggestions" aria-live="polite"></div><label>Trieda stavby (môžeš doplniť neskôr)<select name="classification" id="classification"></select></label><details><summary>Ďalšie nastavenia projektu</summary><div class="grid"><label>Poradie stavby<input name="building" value="01" pattern="[0-9]{2}" required></label>
+<label>Predvolená časť / objekt<input name="part" value="S01" required pattern="[A-Za-z][0-9]{2}"></label>
+<label>Predvolená profesia<select name="profession" id="profession"></select></label>
+</div></details><div class="actions"><button class="primary" id="saveProject">Uložiť projekt</button></div>
+<p id="projectStatus" role="status"></p></form><details><summary>Záloha a ďalšie možnosti</summary><div class="actions"><button type="button" id="backup">Stiahnuť zálohu JSON</button><button type="button" id="restore">Otvoriť zálohu JSON</button><button type="button" id="demo">Načítať príklad</button><button type="button" id="new">Nový projekt</button></div></details></details>
+<details id="dst-panel"><summary>Existujúci Sheet Set (.dst)</summary><p>Načítaj zoznam listov a layoutov z DST. Kliknutím na list vyplníš jeho názov a väzbu na DWG. Poradové číslo pri prevode existujúceho listu skontroluj a zadaj podľa vydanej dokumentácie.</p><div class="actions"><button id="dst">1. Vybrať súbor DST</button><button id="dstProject" class="primary" hidden>2. Použiť nastavenia z DST</button></div><p id="dstInfo" role="status"></p><div class="scroll"><ul id="dstSheets"></ul></div></details><section id="add-drawing"><h2>Pridaj výkres</h2>
+<form id="entry"><label style="margin-bottom:12px">Pracovný názov DWG (voliteľné)<input id="dwgInput" placeholder="Napr. S01_N01.dwg" maxlength="180"></label><div class="grid">
+<label>Názov na rozpiske<input name="title" required maxlength="180" placeholder="Pohľad severný"></label>
+<label>Časť / objekt<select name="section" id="section"><option value="S">Stavebný objekt</option><option value="P">Prevádzkový súbor</option><option>A00</option><option>B00</option><option>C00</option><option>E00</option></select></label>
+<label id="objLabel">Označenie objektu / súboru<input name="object" value="S01" maxlength="3"></label>
+<label id="tradeLabel">Členenie / profesia<select name="trade" id="trade"></select></label>
+<label id="subLabel">Čiastkový prevádzkový súbor<input name="sub" placeholder="Napr. 011" maxlength="3"></label>
+<label id="kindLabel">Druh výkresu<select name="kind" id="kind"></select></label>
+<label id="floorLabel">Číslo podlažia alebo pôdorysu<input name="floor" type="number" min="1" max="99" value="1"></label>
+</div><details><summary>Existujúci list alebo ďalšie údaje</summary><div class="grid"><label id="seqLabel">Existujúce poradové číslo (voliteľné)<input name="seq" inputmode="numeric" pattern="[0-9]{1,3}" placeholder="Automaticky"></label>
+<label id="unnumberedLabel"><span>Samostatná príloha bez poradia (vzor SZS)</span><input name="unnumbered" type="checkbox"></label>
+<label>DWG / layout v SSM (voliteľné)<input name="cad" maxlength="180" placeholder="Napr. S01-ARS.dwg / List 1"></label>
+</div></details><div class="actions"><button class="primary">Pridať výkres</button></div></form>
+</section>
+<section id="register"><h2>Register a odovzdanie</h2><form id="portalForm"><label>ID stavby z Portálu<input name="portal" placeholder="XXXXXXX" aria-describedby="portalHint" pattern="[A-Za-z0-9]{1,32}"></label><div class="actions"><button>Uložiť ID</button></div><p id="portalHint">XXXXXXX znamená, že ID ešte nemáš. Doplň ho až pri odovzdaní.</p></form><p>Zobrazenie je zoradené podľa časti a typu výkresu. Podlažia idú od najnižšieho po najvyššie, potom strecha, rezy a pohľady. Nový výkres dostane ďalšie voľné číslo vo svojej skupine. Zmena revízie zachová číslo aj interný názov DWG. Číselník stavieb je vo verzii do 31. 12. 2026.</p><p id="status" role="status"></p>
+<div class="actions"><button id="csv">Export CSV</button><button id="names">Export názvov PDF</button></div>
+<div class="scroll"><table><thead><tr><th>List / dokument</th><th>Názvy súborov</th><th>Revízia a akcie</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+<section id="dwg-guide"><h2>Ako číslovať a pomenovať DWG</h2><ol><li><strong>Pôdorysy.</strong> Pre objekt S01 použi <code>S01_N01.dwg</code> pre 1. NP a <code>S01_N02.dwg</code> pre 2. NP. N01 a N02 označujú podlažia. Poradové číslo listu pridelí register.</li><li><strong>Rezy, pohľady a detaily.</strong> Prvý pohľad môže byť <code>S01_POH.dwg</code>. Pri druhom pohľade register doplní interné číslo listu, napríklad <code>S01_POH_005.dwg</code>. Prvý súbor ostane <code>S01_POH.dwg</code>. Pridaný detail môžeš v SSM zobraziť medzi staršími listami bez ich prečíslovania.</li><li><strong>Viac layoutov v jednom DWG.</strong> Napríklad <code>S01_REZ.dwg</code> môže obsahovať layouty <code>005_REZ</code> a <code>006_REZ</code>. Každý layout eviduj ako samostatný list. Pri existujúcich listoch zapíš pôvodný DWG a layout do rozšírených údajov.</li><li><strong>Revízia a odovzdanie.</strong> Zachovaj pracovný DWG a číslo listu. Pri oprave zvýš revíziu v registri. Po doplnení ID nástroj poskladá celý názov PDF vrátane revízie.</li></ol><p>Pri zadaní <code>S01_N01.dwg</code> register vyplní objekt S01 a pôdorys 1. NP. Poradie pridelí sám a prvé vydanie nastaví na 00. Stupeň, poradie stavby, triedu a predvolenú profesiu preberie z projektu. Pri inej profesii ju vyber na danom liste.</p></section><details><summary>Pokročilé nastavenie AutoCADu a SSM</summary>
+<p>Príloha č. 24 rozlišuje ID stavby, stupeň, poradie stavby, triedu, časť, profesiu alebo podrobné členenie, poradie, typ a revíziu. Prvé vydanie tento nástroj zapisuje bez koncovky _00. A00 a B00 používajú skrátené tvary podľa príkladov, C00 má poradie a E00 podľa okolností poradie používa. Pri objektoch alebo prevádzkových súboroch rezervuje 000 pre zoznam a technickú správu.</p>
+<p>Pracovný DWG môže obsahovať viac layoutov. Pri jednom liste na DWG môžeš od začiatku použiť odporúčaný interný názov z registra. Pri existujúcich DWG zapíš skutočný DWG a layout do registra a ponechaj väzby v DST a XREF. Čísla sa prideľujú v rámci časti a profesie na danej stavbe. Číslované prílohy E00 používajú jeden spoločný rad. Doplnený list môžeš v SSM zaradiť medzi existujúce listy a prideliť mu ďalšie číslo v registri. Pri ďalšej stavbe alebo stupni založ samostatný register a ulož jeho JSON.</p>
+<ol><li>V klasickom Sheet Set Manageri založ alebo otvor DST a priradené layouty. Pridaj vlastnosť <b>PORTAL_CODE</b> s vlastníkom <b>Sheet</b>. Z registra skopíruj hodnotu „Kód do SSM“ pre každý list. Pri novom liste môžeš do <b>Sheet Number</b> použiť „Číslo do SSM“ a do <b>Sheet Title</b> názov výkresu. V existujúcej sade ponechaj čísla D01 až D13 a pri migrácii ich používaj na kontrolu väzby.</li>
+<li>V lokálnom editovateľnom titulnom bloku nastav pole kategórie <b>SheetSet</b>. Pre kód použi <b>CurrentSheetCustom</b> a vlastnosť <b>PORTAL_CODE</b>. Pre názov použi <b>CurrentSheetTitle</b>. Na projektové údaje použi vlastnosti s vlastníkom <b>Sheet Set</b> cez <b>CurrentSheetSetCustom</b>. Atribúty závislé od listu vlož do jeho layoutu. Pri spoločnej xref rozpiske ich daj do samostatného lokálneho bloku nad rámom. Upravuj skúšobnú kópiu a po vložení šablóny obnov polia cez UPDATEFIELD a REGEN. Skontroluj mierku, dátum aj identifikačné údaje podľa § 6 ods. 11.</li>
+<li>Publikuj listy v SSM ako samostatné PDF s overeným nastavením strany. Pri príslušnom riadku v registri použi „Pomenovať PDF“ a vyber publikovaný súbor. Prehliadač stiahne jeho kópiu s cieľovým názvom. Over náhľad, názov a správny list pred odovzdaním. CSV je možné otvoriť v Sheets alebo Exceli. Stĺpce s kódmi a revíziou importuj ako text kvôli nulám na začiatku.</li></ol>
+<p>V dodanom DST <b>NOVÉ SÍDLO</b> je fáza SZP, projektové číslo je zástupný text a vlastnosti „Pozícia 3“, „Pozícia 4“ a „Pozícia 5“ obsahujú 01, 1220 a S01. Skupina C00 obsahuje osem situácií a ASR trinásť listov. Niektoré zdieľajú DWG, napríklad tri rezy v 005-007_REZ.dwg. Väzby smerujú na iný projektový adresár. Pred použitím kópie šablóny skontroluj dostupnosť a príslušnosť layoutov. Prefixy v rôznych názvoch sa opakujú, takže poradie nemožno prevziať hromadne bez kontroly.</p><p>HTML je hlavný register pre jedného editora. JSON ukladaj do projektového priečinka a pri odovzdaní ho archivuj spolu s CSV a PDF. SSM zobrazuje údaje cez natívne polia AutoCADu. Presun hodnôt z HTML do SSM je v prototype ručný. Pre dávkový zápis je vhodný doplnok pre klasický SSM, ktorý najprv spáruje DST list podľa DWG a layoutu a potom zapíše vlastnosti cez Autodesk SSO API.</p>
+</details>
+<details><summary>Oficiálne zdroje a sporné prípady</summary>
+<p>Overené k 23. 11. 2026. Výber tried v tomto prototype používa číselník účinný do 31. 12. 2026. Pri dokumentácii s klasifikáciou podľa novely od 1. 1. 2027 over príslušnú triedu v novom znení pred exportom. Stavebný zákon v § 8 a § 9 upravuje dokumentáciu, jej elektronické uloženie a stupne projektovej dokumentácie. § 20, § 50 a § 63 upravujú súvisiace kroky pri podaniach. § 83 písm. a) a b) splnomocňuje úrad na podrobnejšiu úpravu. Vyhláška 60/2025 Z. z. v § 6 ods. 11 až 13 určuje obsah rozpisky, samostatné súbory a pomenovanie. Pri dokumente mimo dokumentácie alebo pri názve, ktorý nemožno vytvoriť podľa prílohy 24, § 5 ods. 2 uvádza opisný názov do 45 znakov bez prípony. Tento prípad rieš mimo generátora. Pri prechodných konaniach posúď § 84 Stavebného zákona.</p>
+<p>V prílohe je v prvom príklade pri pohľade uvedené ARS, ale číselník ho uvádza pre areálové rozvody silnoprúdu. Pre architektúru vyber ASR. BK a OK sú v číselníku uvedené doslova s dvomi znakmi aj napriek všeobecnej trojznakovej schéme. Nástroj ich ponecháva v oficiálne uvedenom tvare. Pri týchto dvoch kódoch nebol overený živý import do Portálu.</p>
+<ul>
+<li><a href="https://static.slov-lex.sk/static/SK/ZZ/2025/25/20251101.print.html">Stavebný zákon 25/2025 Z. z. (§ 8 až 10, § 20, § 82 až 84)</a></li>
+<li><a href="https://static.slov-lex.sk/static/SK/ZZ/2022/200/20260301.print.html">Zákon 200/2022 Z. z. o územnom plánovaní (§ 39 ods. 1 písm. c)</a></li><li><a href="https://static.slov-lex.sk/static/SK/ZZ/2025/60/20250401.print.html">Vyhláška 60/2025 Z. z.</a> · <a href="https://static.slov-lex.sk/pdf/prilohy/SK/ZZ/2025/60/vyhlasene_znenie_5721403-2.pdf">Príloha č. 24 a úplné číselníky</a></li>
+<li><a href="https://static.slov-lex.sk/static/SK/ZZ/2025/59/20250401.print.html">Vyhláška 59/2025 Z. z.</a> · <a href="https://static.slov-lex.sk/pdf/prilohy/SK/ZZ/2025/59/vyhlasene_znenie_5721014-2.pdf">Triedy stavieb do 31. 12. 2026</a></li>
+<li><a href="https://static.slov-lex.sk/pdf/SK/ZZ/2026/284/ZZ_2026_284_20270101.pdf">Nové znenie číselníka od 1. 1. 2027 podľa 284/2026 Z. z.</a> · <a href="https://static.slov-lex.sk/static/SK/ZZ/2026/243/20270101.print.html">Novela Stavebného zákona 243/2026 Z. z.</a></li>
+<li><a href="https://www.uupv.sk/faq">FAQ úradu, otázky 19 až 21</a> · <a href="https://uupv.sk/storage/app/media/Agenda%20vystavby/Usmernenia/1762872629-9646-Metodick%C3%BD%20pokyn_Podania_2025_11_11.pdf">Metodický pokyn k podaniam</a> · <a href="https://uupv.sk/aktuality/druhy-webinar-zamerany-na-predstavenie-jednotlivych-funkcionalit-portalu-vystavby">Ukážky Portálu výstavby</a></li>
+<li><a href="https://github.com/Bedz01/dst-codec">Dokumentácia formátu DST použitého pri čítaní</a></li><li><a href="https://damassets.autodesk.net/content/dam/autodesk/www/cad-manager-center/articles/Mastering-AutoCAD-Sheet-Sets_Final_EN.pdf">Autodesk – Mastering AutoCAD Sheet Sets, kroky 10 a 11</a> · <a href="https://help.autodesk.com/cloudhelp/2024/ESP/AutoCAD-ActiveX-SSO/files/GUID-56F608AE-CEB3-471E-8A64-8C909B989F24.htm">Autodesk SSO API</a></li>
+</ul></details>
+<footer>Tip pri prechode zo staršej verzie. V pôvodnom registri ulož projekt JSON a tu ho otvor cez „Otvoriť zálohu JSON“.<br>Projekt sa ukladá v tomto prehliadači. Prenos medzi počítačmi a zálohovanie zabezpečuje export JSON.</footer>
+</main>
+<script>
+
+const $=id=>document.getElementById(id);
+const stages='PSO Projekt stavby na ohlásenie|SZP Stavebný zámer|SZZ Zmena stavebného zámeru|PSP Projekt stavby|PSZ Zmena projektu stavby|VPP Vykonávací projekt|RDS Realizačná dokumentácia stavby|DSZ Dokumentácia skutočného zhotovenia|ZDS Pasport stavby';
+const professions='ASR Architektonicko-stavebné riešenie|STA Statika|ZTI Zdravotechnická inštalácia|VYK Vykurovanie|PLY Plynoinštalácia|VZT Vzduchotechnika a chladenie|MAR Meranie a regulácia|ELI Elektroinštalácia|BLZ Bleskozvod a uzemnenie|SLP Slaboprúd|HSP Hlasová signalizácia požiaru|EPS Elektrická požiarna signalizácia|SHZ Stabilné hasiace zariadenia|ODT Odvod dymu a tepla|USV Umelé osvetlenie|KRA Krajinné, sadové a terénne úpravy|DOP Dopravné riešenie|POD Organizácia dopravy|TDZ Trvalé dopravné značenie|DDZ Dočasné dopravné značenie|PNN Prípojka NN|PVN Prípojka VN|VUO Vonkajšie a verejné osvetlenie|ARS Areálové rozvody silnoprúdu|AEK Areálové rozvody elektronických komunikácií|REK Rozvody elektronických komunikácií|VDS Vedenia distribučnej sústavy|BK Betónové konštrukcie|OK Oceľové konštrukcie|SKV Kontrola vstupu|EZS Elektrická zabezpečovacia signalizácia|UTO Uzatvorený televízny okruh|HSR Hotelový systém riadenia|NKS Nemocničný komunikačný systém|SKR Riadenie procesov|CRS Centrálne riadenie budov|ADR Automatické dispečerské riadenie|ZDT Zdravotnícka technológia|RTG Radiačná ochrana|MED Medicinálne plyny|TGZ Výrobné technologické zariadenia|ETS Elektrická stanica|PRS Prevádzkový rozvod silnoprúdu|NZE Náhradný zdroj energie|FVZ Fotovoltický zdroj|FVE Fotovoltická elektráreň|KGZ Kogeneračný zdroj|BAT Batériové úložisko|KTO Katódová ochrana|INE Iná profesia';
+const annexes='SZS Správa o prerokovaní stavebného zámeru|STD Stavebný denník|ZSS Záverečné stanovisko stavbyvedúceho|PBS Protipožiarna bezpečnosť|POV Organizácia výstavby|STP Kontrolné statické posúdenie / umelé osvetlenie|GDP Geodetické podklady|PAM Pamiatkový výskum|EIA Vplyvy na životné prostredie|EHB Energetické hodnotenie|DEN Dendrologické posúdenie|DEV Náhradná výsadba|SVP Svetelno-technické posúdenie|HGP Hydrogeologické posúdenie|IGP Inžinierskogeologické posúdenie|HLU Hluková štúdia|IPP Imisno-prenosové posúdenie|PEZ Prieskum environmentálnej záťaže|ECB Energetický certifikát|INE Iné posúdenie';
+const kinds='N Nadzemné podlažie / pôdorys|P Podzemné podlažie|POH Pohľad|REZ Rez|DET Detail|SIT Situácia|VYT Vytyčovací výkres|VYZ Výkres základov|VYS Výkres strechy|STV Statický výpočet|VIZ Vizualizácia|SCH Schéma|VVZ Výkaz výrobkov, zariadení alebo prvkov|VYV Výkaz výmer|ROZ Rozpočet|AAA Zoznam dokumentov a výkresov|TXT Technická správa';
+const classes={"1111":"JEDNOBYTOVÉ BUDOVY","1112":"DVOJBYTOVÉ BUDOVY","1113":"TROJBYTOVÉ BUDOVY","1120":"VIACBYTOVÉ BUDOVY","1130":"INÉ BYTOVÉ BUDOVY","1211":"HOTELOVÉ BUDOVY","1212":"INÉ BUDOVY PRE CESTOVNÝ RUCH A UBYTOVANIE","1213":"BUDOVY VEREJNÉHO STRAVOVANIA","1220":"BUDOVY PRE ADMINISTRATÍVU","1230":"Budovy pre obchod a služby","1241":"Budovy pre kultúru","1242":"Budovy pre cirkev","1250":"Budovy pre výchovu a vzdelávanie","1260":"Budovy pre zdravotníctvo","1271":"Budovy pre šport","1272":"Budovy pre rekreáciu","1280":"Budovy pre sociálne služby","1290":"Iné budovy pre vybavenosť","1311":"","1312":"Budovy spracovateľského priemyslu","1313":"","1314":"Sklady","1321":"","1322":"","1323":"","1330":"","1410":"Budovy pre dopravnú vybavenosť","1420":"Budovy pre technickú vybavenosť","1511":"Drobné stavby prízemné","1512":"","2111":"Diaľnice","2112":"Cesty I. triedy","2113":"Cesty II. a III. triedy","2114":"Miestne cesty a účelové cesty","2115":"","2121":"","2122":"","2130":"","2141":"","2142":"","2151":"Parkoviská, spevnené a manipulačné plochy","2211":"","2212":"","2213":"","2214":"","2215":"","2216":"","2311":"","2312":"","2313":"","2314":"","2315":"","2321":"","2322":"","2323":"","2324":"","2325":"","2331":"","2332":"","2411":"","2412":"","2413":"","2420":"","2511":"Športové ihriská","2512":"Iné športové a rekreačné stavby","2520":"Stavby pre kultúru","2530":"Iné stavby pre vybavenosť","2611":"","2612":"","2711":"","2712":"","2713":"","2720":"","2811":"","2812":""};
+const split=list=>list.split('|').map(s=>[s.split(' ')[0],s]);
+const inList=(list,code)=>split(list).some(([key])=>key===code);
+const pad=(n,w)=>String(n).padStart(w,'0');
+function ensure(ok,msg){if(!ok)throw Error(msg)}
+const digits=(x,w)=>typeof x==='string'&&x.length===w&&/^\d+$/.test(x);
+const objectCode=(x,group)=>typeof x==='string'&&new RegExp('^'+group+'(0[1-9]|[1-9][0-9])$').test(x);
+const blank=()=>({version:1,project:{name:'',portal:'',stage:'SZP',building:'01',classification:'',part:'S01',profession:'ASR'},items:[],nextId:1,demo:false});
+const key='register-vykresov-sk-v1';
+const pendingId='XXXXXXX';
+function projectValid(p){
+  ensure(p&&typeof p.name==='string'&&p.name.trim()&&p.name.length<=100,'Zadaj interný názov.');
+  ensure(typeof p.portal==='string'&&/^[A-Z0-9]{0,32}$/.test(p.portal)&&p.portal!==pendingId,'ID prepíš z Portálu, bez medzier a oddeľovačov.');
+  ensure(inList(stages,p.stage)&&digits(p.building,2)&&p.building!=='00'&&(p.classification===""||Object.hasOwn(classes,p.classification)),'Vyber platný stupeň, poradie stavby 01–99 a triedu.');
+  ensure(objectCode(p.part,'[SP]')||['A00','B00','C00','E00'].includes(p.part),'Zadaj objekt S01–S99, súbor P01–P99 alebo časť A00, B00, C00, E00.');
+  ensure(inList(professions,p.profession),'Vyber predvolenú profesiu.');
+}
+function suffix(e){return [e.part,e.trade,e.seq,e.kind].filter(Boolean).join('_')}
+function code(p,e){return [p.portal,p.stage,p.building,p.classification,suffix(e),e.rev==='00'?'':e.rev].filter(Boolean).join('_')}
+function group(e){return e.part==='E00'?'E00':[e.part,e.trade].join('_')}
+function dwgStem(e){return [e.part,e.kind||e.trade].join('_')}
+function internal(e){
+  const stem=dwgStem(e);
+  const repeated=state.items.some(other=>other.id<e.id&&dwgStem(other)===stem);
+  return stem+(repeated?'_'+pad(e.id,3):'')+'.dwg';
+}
+function sheetNumber(e){return 'L'+pad(e.id,3)}
+function validateItem(e){
+  ensure(e&&Number.isSafeInteger(e.id)&&e.id>0&&typeof e.title==='string'&&e.title.trim()&&e.title.length<=180&&typeof e.cad==='string'&&e.cad.length<=180&&digits(e.rev,2),'Neplatný list v registri.');
+  const section=e.part;
+  if(section==='A00'||section==='B00'){
+    ensure(e.trade===(section==='A00'?'AAA':'SPR')&&e.seq===''&&e.kind==='','Neplatné členenie A00/B00.');
+  }else if(section==='C00'||section==='E00'){
+    ensure((section==='C00'?e.trade==='SIT':inList(annexes,e.trade))&&e.kind==='','Neplatné členenie situácie alebo prílohy.');
+    ensure((section==='E00'&&e.trade==='SZS'&&e.seq==='')||(digits(e.seq,3)&&e.seq!=='000'),'Zadaj poradové číslo situácie alebo prílohy.');
+  }else{
+    ensure((objectCode(section,'S')&&inList(professions,e.trade))||(objectCode(section,'P')&&digits(e.trade,3)&&e.trade.slice(0,2)===section.slice(1)&&e.trade[2]!=='0'),'Skontroluj objekt a profesiu alebo číslo čiastkového prevádzkového súboru.');
+    ensure((inList(kinds,e.kind)&&!['N','P'].includes(e.kind))||objectCode(e.kind,'[NP]'),'Zadaj typ výkresu alebo podlažie 01–99.');
+    ensure(digits(e.seq,3)&&(['AAA','TXT'].includes(e.kind)?e.seq==='000':e.seq!=='000'),'Číslo 000 je rezervované pre zoznam a technickú správu.');
+  }
+}
+function allocate(items,e,manual){
+  if(e.seq==='000'||['A00','B00'].includes(e.part))return e.seq;
+  if(manual){
+    ensure(/^\d{1,3}$/.test(manual)&&Number(manual)>0,'Poradové číslo musí byť 001 až 999.');
+    return pad(Number(manual),3);
+  }
+  const last=Math.max(0,...items.filter(x=>group(x)===group(e)).map(x=>Number(x.seq)));
+  ensure(last<999,'Táto skupina dosiahla číslo 999. Môžeš ručne prideliť nepoužité číslo.');
+  return pad(last+1,3);
+}
+function unique(items,e){
+  ensure(!items.some(x=>x.id===e.id||suffix(x)===suffix(e)||(e.seq&&e.seq!=='000'&&group(x)===group(e)&&x.seq===e.seq)),'Toto číslo alebo kód už register obsahuje.');
+}
+function validateState(s){
+  if(s?.demo&&s.project&&['Ukážka – ohlásenie drobnej stavby','Napíš názov projektu'].includes(s.project.name))s.project.name='Názov projektu';
+  if(s?.project&&/^(XXXXX|XXXXXXX)$/.test(s.project.portal))s.project.portal='';
+  ensure(s?.version===1&&Array.isArray(s.items)&&s.items.length<=9999&&Number.isSafeInteger(s.nextId)&&s.nextId>0&&typeof s.demo==='boolean','Neplatný projekt JSON.');
+  if(s.project?.name||s.items.length)projectValid(s.project);
+  else ensure(JSON.stringify(s.project)===JSON.stringify(blank().project),'Neplatné nastavenie prázdneho projektu.');
+  const checked=[];
+  s.items.forEach(e=>{validateItem(e);unique(checked,e);ensure(e.id<s.nextId,'Neplatné interné poradové číslo.');checked.push(e)});
+  return s;
+}
+function options(el,items){el.replaceChildren(...items.map(([value,label])=>new Option(label,value)))}
+function file(name,data,type='text/plain;charset=utf-8'){
+  const url=URL.createObjectURL(data instanceof Blob?data:new Blob([data],{type}));
+  const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+function choose(accept){
+  const input=document.createElement('input');input.type='file';input.accept=accept;
+  return new Promise(resolve=>{input.onchange=()=>resolve(input.files[0]);input.oncancel=()=>resolve();input.click()});
+}
+let state=blank(), initMessage='';
+try{const saved=localStorage.getItem(key);if(saved)state=validateState(JSON.parse(saved))}catch(e){initMessage='Uložený projekt sa nepodarilo načítať. Použi zálohu JSON.'}
+const message=s=>$('status').textContent=s;
+function save(){
+  try{localStorage.setItem(key,JSON.stringify(state));return true}catch(e){message('Prehliadač neuložil projekt. Stiahni zálohu JSON.');return false}
+}
+const controls=$('entry').elements;
+function fields(){
+  const part=controls.section.value, detail=['S','P'].includes(part);
+  const tradeList=part==='S'?professions:part==='E00'?annexes:'';
+  if(tradeList&&controls.trade.dataset.list!==part){
+    options(controls.trade,split(tradeList));controls.trade.value=part==='S'?state.project.profession:'SZS';
+  }
+  controls.trade.dataset.list=part;
+  const show=(label,input,visible)=>{ $(label).style.display=visible?'':'none';controls[input].disabled=!visible };
+  const floor=detail&&['N','P'].includes(controls.kind.value);
+  const reserved=detail&&['AAA','TXT'].includes(controls.kind.value);
+  const canOmit=part==='E00'&&controls.trade.value==='SZS';
+  show('objLabel','object',detail);show('tradeLabel','trade',!!tradeList);show('subLabel','sub',part==='P');
+  show('kindLabel','kind',detail);show('floorLabel','floor',floor);show('unnumberedLabel','unnumbered',canOmit);
+  show('seqLabel','seq',!['A00','B00'].includes(part)&&!reserved&&!(canOmit&&controls.unnumbered.checked));
+}
+function fill(){
+  if($('wizardStage').options.length){$('wizardForm').elements.name.value=state.project.name;if(Object.hasOwn(stagePackages,state.project.stage))$('wizardStage').value=state.project.stage;}
+  for(const [name,value] of Object.entries(state.project))$('project').elements[name].value=value;
+   $('portalForm').elements.portal.value=state.project.portal||pendingId;
+  controls.section.value=state.project.part.startsWith('S')?'S':state.project.part.startsWith('P')?'P':state.project.part;
+  controls.object.value=/^[SP]/.test(state.project.part)?state.project.part:'';
+  controls.trade.dataset.list='';fields();render();
+}
+function action(label,run,disabled=false){
+  const b=document.createElement('button');b.type='button';b.textContent=label;b.disabled=disabled;
+  b.onclick=async()=>{try{await run()}catch(e){if(b.closest('#wizard'))wizardNotice.textContent=e.message;else message(e.message)}};return b;
+}
+function addText(parent,tag,value){const n=document.createElement(tag);n.textContent=value;parent.append(n)}
+function layoutKind(value){
+  const text=value.toUpperCase().normalize('NFD').replace(/\p{M}/gu,'');
+  const floor=text.match(/(?:^|[^A-Z0-9])(?:([NP])(\d{2})|(\d{1,2})(NP|PP))(?=$|[^A-Z0-9])/);
+  if(floor){
+    const letter=floor[1]||(floor[4]==='NP'?'N':'P');
+    const code=letter+pad(Number(floor[2]||floor[3]),2);
+    if(objectCode(code,'[NP]'))return code;
+  }
+  const byName=[['VYS',/\bVYS\b|STRECH/],['REZ',/\bREZ\b|REZY/],['POH',/\bPOH\b|POHLAD/],['DET',/\bDET\b|DETAIL/]];
+  return text.match(/(?:^|[^A-Z0-9])(AAA|TXT|SIT|VYT|VYZ|VIZ|SCH|VVZ|VYV|ROZ|STV)(?=$|[^A-Z0-9])/)?.[1]||byName.find(([,pattern])=>pattern.test(text.replaceAll('_',' ')))?.[0]||'';
+}
+function drawingOrder(kind){
+  if(/^P\d{2}$/.test(kind))return 130-Number(kind.slice(1));
+  if(/^N\d{2}$/.test(kind))return 130+Number(kind.slice(1));
+  return {AAA:0,SPR:1,TXT:2,SIT:3,VYT:4,VYZ:10,VYS:230,REZ:240,POH:250,DET:260,VVZ:270,VYV:271,ROZ:272}[kind]??300;
+}
+function byDrawing(a,b){
+  return a.part.localeCompare(b.part,'sk',{numeric:true})||
+    a.trade.localeCompare(b.trade,'sk')||
+    drawingOrder(a.kind||a.trade)-drawingOrder(b.kind||b.trade)||
+    Number(a.seq)-Number(b.seq)||a.id-b.id;
+}
+
+function render(){
+  $('projectStatus').textContent=state.demo?'Ukážka projektu. ID stavby čaká na doplnenie.':state.project.name?'Projekt je uložený. Výkresy môžeš pridávať nižšie.':'';
+  const ready=Boolean(state.project.portal&&state.project.classification&&!state.demo);
+  const missing=[!state.project.portal?'ID stavby':'',!state.project.classification?'triedu stavby':''].filter(Boolean).join(' a ');
+  $('portalForm').elements.portal.readOnly=Boolean(ready&&state.items.length);
+  $('names').disabled=!ready||!state.items.length;$('csv').disabled=!state.items.length;
+  $('rows').replaceChildren(...state.items.slice().sort(byDrawing).map(e=>{
+    const row=document.createElement('tr'),meta=row.insertCell(),files=row.insertCell(),actions=row.insertCell();
+    const stem=code(state.project,e), pdf=stem+'.pdf';
+    addText(meta,'strong',e.title);addText(meta,'small','Číslo do SSM '+sheetNumber(e));if(e.cad)addText(meta,'small',e.cad);
+    addText(files,'small',ready?'PDF a kód do SSM':'Pracovný kód · Pre PDF doplň '+missing);
+    addText(files,'code',ready?pdf:code({...state.project,portal:state.project.portal||pendingId},e));
+    addText(files,'small','Odporúčaný interný DWG');addText(files,'code',internal(e));
+    const rev=document.createElement('input');rev.type='number';rev.min=Number(e.rev);rev.max=99;rev.value=Number(e.rev);rev.style.width='5em';rev.setAttribute('aria-label','Revízia – '+e.title);
+    actions.append(rev,action('Uložiť revíziu',()=>{
+      const n=Number(rev.value);ensure(rev.value&&Number.isInteger(n)&&n>=Number(e.rev)&&n<=99,'Zadaj revíziu od aktuálnej hodnoty do 99.');
+      e.rev=pad(n,2);render();if(save())message('Revízia uložená.');
+    }));
+    const buttons=document.createElement('div');buttons.className='actions';
+    buttons.append(action('Kód do SSM',async()=>{
+      try{await navigator.clipboard.writeText(stem);message('Kód bol skopírovaný.')}catch{window.prompt('Skopíruj kód bez prípony:',stem)}
+    },!ready),action('Pomenovať PDF',async()=>{
+      const selected=await choose('.pdf,application/pdf');if(!selected)return;
+      ensure(selected.name.toLowerCase().endsWith('.pdf')&&(await selected.slice(0,5).text())==='%PDF-','Vyber publikovaný súbor PDF.');
+      file(pdf,selected);
+    },!ready));
+    actions.append(buttons);return row;
+  }));
+}
+function handle(fn){return async e=>{e?.preventDefault();try{await fn(e)}catch(err){message(err.message)}}}
+options($('stage'),split(stages));options($('profession'),split(professions));options($('kind'),split(kinds));
+options($('classification'),[['','Vyber triedu podľa vyhlášky 59/2025'],...Object.entries(classes).sort().map(([c,n])=>[c,n?c+' '+n:c+' – názov v prílohe'])]);
+$('entry').onchange=e=>{
+  if(e.target===controls.section&&['S','P'].includes(controls.section.value)&&!controls.object.value.startsWith(controls.section.value)){
+    controls.object.value=controls.section.value+'01';
+  }
+  fields();
+};
+$('project').onsubmit=handle(()=>{
+  const p=Object.fromEntries(new FormData($('project')));
+  for(const k of Object.keys(p))p[k]=p[k].trim();
+  p.portal=p.portal.toUpperCase();p.part=p.part.toUpperCase();projectValid(p);
+  if(state.items.length){
+    const prev=state.project;
+    ensure(p.building===prev.building&&(!prev.classification||!prev.portal||p.classification===prev.classification)&&(!prev.portal||prev.portal===p.portal||state.demo),'Poradie stavby, potvrdenú triedu alebo pridelené ID nastav pri založení samostatného registra.');
+  }
+  state.demo=state.demo&&!p.portal;
+  state.project=p;fill();if(save())message('Nastavenie projektu uložené.');
+});
+$('entry').onsubmit=handle(()=>{
+  projectValid(state.project);
+  const v=Object.fromEntries(new FormData($('entry'))),type=v.section;
+  const e={id:state.nextId,title:v.title.trim(),cad:v.cad.trim(),part:type,trade:'',seq:'',kind:'',rev:'00'};
+  if(type==='S'||type==='P'){
+    e.part=v.object.trim().toUpperCase();ensure(objectCode(e.part,type),'Označenie musí zodpovedať zvolenému typu časti.');
+    e.trade=type==='S'?v.trade:v.sub.trim();
+    e.kind=['N','P'].includes(v.kind)?v.kind+pad(Number(v.floor),2):v.kind;
+    e.seq=['AAA','TXT'].includes(e.kind)?'000':allocate(state.items,e,v.seq);
+  }else if(type==='A00'||type==='B00')e.trade=type==='A00'?'AAA':'SPR';
+  else{
+    e.trade=type==='C00'?'SIT':v.trade;
+    if(!v.unnumbered)e.seq=allocate(state.items,e,v.seq);
+  }
+  validateItem(e);unique(state.items,e);state.items.push(e);state.nextId++;
+  controls.title.value='';controls.seq.value='';controls.cad.value='';$('dwgInput').value='';render();if(save())message('Pridaný list '+sheetNumber(e)+'.');
+});
+$('portalForm').onsubmit=handle(()=>{
+  const entered=$('portalForm').elements.portal.value.trim().toUpperCase();
+  const p={...state.project,portal:/^(XXXXX|XXXXXXX)$/.test(entered)?'':entered};
+  projectValid(p);
+  ensure(!state.project.portal||p.portal===state.project.portal||state.demo||!state.project.classification||!state.items.length,'Pridelené ID je pri založených listoch uzamknuté.');
+  state.demo=state.demo&&!p.portal;
+  state.project=p;fill();if(save())message(p.portal?'ID stavby uložené.':'ID môžeš doplniť neskôr.');
+});
+$('backup').onclick=()=>file('register-vykresov.json',JSON.stringify(state,null,2),'application/json');
+$('restore').onclick=handle(async()=>{
+  const f=await choose('.json,application/json');if(!f)return;
+  ensure(f.size<=8e6,'Záloha je príliš veľká.');
+  const incoming=validateState(JSON.parse(await f.text()));
+  if(state.project.name&&!confirm('Otvoriť vybranú zálohu namiesto aktuálneho projektu?'))return;
+  state=incoming;fill();if(save())message('Projekt načítaný.');
+});
+$('new').onclick=()=>{if(state.project.name&&!confirm('Založiť nový projekt? Aktuálny si môžeš najprv uložiť ako JSON.'))return;state=blank();fill();if(save())message('Otvorený nový projekt.')};
+$('demo').onclick=()=>{
+  if(state.project.name&&!confirm('Načítať ukážku namiesto aktuálneho projektu?'))return;
+  state={...blank(),demo:true,project:{...blank().project,name:'Názov projektu',portal:'',stage:'PSO',classification:'1511'},
+    items:[{id:1,title:'Pôdorys prízemia',part:'S01',trade:'ASR',seq:'001',kind:'N01',rev:'00',cad:''},
+      {id:2,title:'Pohľad severný',part:'S01',trade:'ASR',seq:'002',kind:'POH',rev:'01',cad:''}],nextId:3};
+  fill();if(save())message('Ukážka načítaná.');
+};
+const quote=v=>'"'+String(v).replace(/^([=+@-]|\s+[=+@-])/,"'$1").replaceAll('"','""')+'"';
+$('csv').onclick=()=>{
+  const p=state.project,ready=p.portal&&p.classification&&!state.demo;
+  const rows=[['List','Názov','Revízia','Výkres','Odporúčaný DWG','Skutočný DWG / layout','PORTAL_CODE','PDF'],
+    ...state.items.map(e=>[sheetNumber(e),e.title,e.rev,suffix(e),internal(e),e.cad,ready?code(p,e):'',ready?code(p,e)+'.pdf':''])];
+  file('register-vykresov.csv','\ufeff'+rows.map(r=>r.map(quote).join(';')).join('\r\n'),'text/csv;charset=utf-8');
+};
+$('names').onclick=()=>file('nazvy-pdf.txt',state.items.map(e=>code(state.project,e)+'.pdf').join('\r\n')+'\r\n');
+fill();if(initMessage)message(initMessage);
+
+function decodeDst(bytes){
+  // Byte mapping documented by Bedz01/dst-codec (MIT).
+  const base=[127,111,159,143,191,175,223,207,0,239,31,0,63,47,95,79];
+  return new TextDecoder('utf-8',{fatal:true}).decode(bytes.map(b=>{
+    if(b===0x83||b===0x87)return 10;
+    if(b===0x86)return 9;
+    ensure(base[b>>4]!==0,'Nepodporovaný znak v súbore DST.');
+    return base[b>>4]+((b&15)^13);
+  }));
+}
+function direct(node,tag){return Array.from(node?.children||[]).find(x=>x.tagName===tag)}
+function prop(node,key){
+  return Array.from(node?.children||[]).find(x=>x.tagName==='AcSmProp'&&x.getAttribute('propname')===key)?.textContent||'';
+}
+let imported;
+$('dst').onclick=handle(async()=>{
+  const selected=await choose('.dst');if(!selected)return;
+  ensure(selected.size<5e6,'Súbor DST je príliš veľký.');
+  const xml=decodeDst(new Uint8Array(await selected.arrayBuffer()));
+  ensure(!/<!DOCTYPE/i.test(xml),'Nepodporovaná štruktúra DST.');
+  const doc=new DOMParser().parseFromString(xml,'application/xml');
+  ensure(doc.documentElement.tagName==='AcSmDatabase','Vyber Sheet Set AutoCAD DST.');
+  const set=doc.querySelector('AcSmSheetSet');
+  ensure(set,'DST neobsahuje sadu listov.');
+  const bag=direct(set,'AcSmCustomPropertyBag');
+  const custom=key=>prop(Array.from(bag?.children||[]).find(x=>x.getAttribute('propname')===key),'Value');
+  imported={name:(prop(set,'ProjectName')||prop(set,'Name')).slice(0,100),stage:prop(set,'ProjectPhase'),building:custom('Pozícia 3'),classification:custom('Pozícia 4'),part:custom('Pozícia 5')};
+  const sheets=Array.from(set.querySelectorAll('AcSmSheet')).map(sheet=>{
+    const link=direct(sheet,'AcSmAcDbLayoutReference');
+    const filename=(prop(link,'Relative_FileName')||prop(link,'FileName')).split(/[\\/]/).pop(),layout=prop(link,'Name');
+    const title=prop(sheet,'Title');
+    return {title,number:prop(sheet,'Number'),cad:[filename,layout].filter(Boolean).join(' / '),subset:prop(sheet.closest('AcSmSubset'),'Name'),kind:layoutKind(layout)||layoutKind(title)||layoutKind(filename)};
+  }).sort((a,b)=>a.subset.localeCompare(b.subset,'sk',{numeric:true})||drawingOrder(a.kind)-drawingOrder(b.kind)||a.number.localeCompare(b.number,'sk',{numeric:true})||a.title.localeCompare(b.title,'sk',{numeric:true}));
+  $('dstInfo').textContent=imported.name+' · '+sheets.length+' listov. Klikni na „2. Použiť nastavenia z DST“.';
+  $('dstProject').hidden=false;
+  $('dstSheets').replaceChildren(...sheets.map(s=>{
+    const li=document.createElement('li');
+    li.append(action([s.subset,s.number,s.title,s.cad].filter(Boolean).join(' · '),()=>{
+      controls.title.value=(s.title||s.number).slice(0,180);controls.cad.value=s.cad.slice(0,180);
+      if(s.subset==='C00')controls.section.value='C00';
+      else if(inList(professions,s.subset)){
+        controls.section.value='S';if(!objectCode(controls.object.value,'S'))controls.object.value='S01';
+      }
+      controls.seq.value='';
+      if(controls.section.value==='S'&&s.kind){
+        if(objectCode(s.kind,'[NP]')){controls.kind.value=s.kind[0];controls.floor.value=Number(s.kind.slice(1));}
+        else controls.kind.value=s.kind;
+      }
+      fields();if(inList(professions,s.subset))controls.trade.value=s.subset;
+      controls.title.focus();
+    }));
+    return li;
+  }));
+});
+$('dstProject').onclick=()=>{
+  const p=$('project').elements;
+  if(imported.name)p.name.value=imported.name;
+  if(inList(stages,imported.stage))p.stage.value=imported.stage;
+  if(digits(imported.building,2))p.building.value=imported.building;
+  if(Object.hasOwn(classes,imported.classification))p.classification.value=imported.classification;
+  if(objectCode(imported.part,'[SP]'))p.part.value=imported.part;
+  $('projectStatus').textContent='3. Skontroluj údaje a klikni na zelené „Uložiť projekt“. ID môžeš doplniť neskôr.';
+  $('project-settings').open=true;
+  $('saveProject').focus();
+};
+
+
+const hints={
+ '1111':['rodinný dom|jednobyt|jeden byt|1 byt','Jeden byt.'],
+ '1112':['dvojbyt|dva byty|2 byty','Dva byty.'],
+ '1113':['trojbyt|tri byty|3 byty','Tri byty.'],
+ '1120':['bytový dom|bytovka|viacbyt|trvalé bývanie','Štyri a viac bytov.'],
+ '1130':['internát|celoročné ubytovanie|pobytové sociálne služby','Napríklad internát alebo pobytové zariadenie sociálnych služieb.'],
+ '1211':['hotel|motel','Hotel alebo motel.'],
+ '1212':['apartmán|penzión|hostel|ubytovňa|krátkodob|prechodné ubytovanie','Napríklad apartmánová budova na krátkodobé ubytovanie alebo penzión.'],
+ '1213':['reštaurácia|jedáleň|kaviareň|stravovanie','Verejné stravovanie bez ubytovania.'],
+ '1220':['kancelár|administratív|sídlo firmy|úrad|archív','Budova využívaná najmä na administratívu.'],
+ '1230':['obchod|predajň|tržnic|showroom|služby','Napríklad predajňa, tržnica alebo budova služieb.'],
+ '1241':['kino|divadlo|múzeum|galéri|knižnic','Budova pre kultúru.'],
+ '1242':['kostol|kaplnk|sakrál','Sakrálna alebo iná cirkevná budova.'],
+ '1250':['škola|škôlka|vzdelávanie|univerzita','Budova školy alebo školského zariadenia.'],
+ '1260':['nemocnic|ambulanci|poliklin|zdravotníck','Budova pre zdravotníctvo.'],
+ '1271':['telocvičň|športová hala|plaváreň','Športová budova, napríklad telocvičňa.'],
+ '1272':['rekreačná chata|individuálna rekreácia|rekreačná budova','Budova na individuálnu rekreáciu.'],
+ '1312':['výrobná hala|spracovateľsk|strojár|drevovýrob','Budova spracovateľského priemyslu.'],
+ '1314':['sklad|skladovacia hala','Budova na skladovanie.'],
+ '1410':['garážová budova|parkovací dom|garáž','Napríklad garážová budova alebo parkovací dom.'],
+ '1420':['trafostanic|kotolň|výmenníková stanica','Napríklad budova trafostanice alebo kotolne.'],
+ '1511':['garáž|prístreš|sauna|letná kuchyň|kôlň','Prízemná drobná stavba, ktorá je budovou. Číselník uvádza do 50 m² zastavanej plochy a výšky 5 m.'],
+ '1512':['pivnic|podzemná budova','Drobná podzemná stavba, ktorá je budovou, napríklad pivnica.'],
+ '2114':['účelová cest|areálová komunikáci|miestna cest','Miestna alebo účelová cesta.'],
+ '2115':['chodník|cyklotras','Cyklotrasa alebo chodník.'],
+ '2151':['parkovisko|spevnená plocha|manipulačná plocha|námestie','Napríklad vonkajšie parkovisko alebo spevnená plocha.'],
+ '2511':['ihrisko|tenisový kurt|otvorený bazén','Napríklad športové ihrisko, kurt alebo otvorený bazén.'],
+ '2711':['plot|oplotenie|vlajkový stožiar','Drobná nadzemná inžinierska stavba, napríklad oplotenie.'],
+ '2712':['žump|retenčná nádrž|bazén','Drobná podzemná inžinierska stavba, napríklad žumpa.'],
+ '2811':['terénne úpravy|oporná stena|spevnenie svahu','Terénne úpravy, napríklad oporná stena alebo spevnenie svahu.']
+};
+const normalize=s=>s.toLowerCase().normalize('NFD').replace(/\p{M}/gu,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+function matchesClass(query){
+  const q=normalize(query);
+  const count=q.match(/\b(\d+)\s+byt/);
+  const housing=count&&Number(count[1])>0?['1111','1112','1113'][Number(count[1])-1]||'1120':'';
+  return Object.entries(classes).map(([code,title])=>{
+    const [terms,reason]=hints[code]||['',''];
+    const hits=terms.split('|').filter(Boolean).map(normalize).filter(t=>q.includes(t));
+    const labelWords=normalize(title).split(' ').filter(w=>w.length>4&&!['budovy','stavby','drobne','triedy'].includes(w));
+    const score=(q.split(' ').includes(code)?100:0)+(code===housing?50:0)+hits.reduce((sum,t)=>sum+(t.includes(' ')?7:4),0)+labelWords.filter(w=>q.includes(w.slice(0,-1))).length;
+    return {code,title,reason,score};
+  }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,5);
+}
+$('classQuery').oninput=()=>{
+  const out=$('classSuggestions'),q=$('classQuery').value.trim();
+  out.replaceChildren();if(q.length<3)return;
+  const matches=matchesClass(q);
+  addText(out,'p',matches.length?'Možné triedy podľa číselníka. Vyber podľa hlavného účelu stavby.':'Bez zhody. Skús uviesť účel, napríklad kancelárie, garáž alebo počet bytov.');
+  for(const item of matches){
+    const line=document.createElement('div');
+    line.className='actions';
+    line.append(action(item.code+' '+item.title,()=>{
+      $('classification').value=item.code;
+      $('classification').dispatchEvent(new Event('change'));
+      $('classification').focus();
+    }));
+    if(item.reason)addText(line,'small',item.reason);
+    out.append(line);
+  }
+};
+$('dwgInput').oninput=()=>{
+  const name=$('dwgInput').value.trim();
+  const match=name.match(/^(S[0-9]{2})_([A-Z]{3}|[NP][0-9]{2})(?:_\d{3,})?\.dwg$/i);
+  if(!match)return;
+  const [,part,kind]=match.map(x=>x.toUpperCase());
+  const floor=/^[NP]\d{2}$/.test(kind);
+  if(!objectCode(part,'S')||!(floor?objectCode(kind,'[NP]'):inList(kinds,kind)))return;
+  controls.section.value='S';
+  controls.object.value=part;
+  controls.kind.value=floor?kind[0]:kind;
+  if(floor)controls.floor.value=Number(kind.slice(1));
+  controls.cad.value=name;
+  fields();
+};
+
+
+const wizard=$('wizardForm'), wizardFields=wizard.elements;
+const packageLabels={
+ PBS:'Požiarna bezpečnosť (PBS)',STA:'Statika',ZTI:'Zdravotechnika',VYK:'Vykurovanie',
+ VZT:'Vzduchotechnika a chladenie',PLY:'Plyn',ELI:'Elektroinštalácia – správa',
+ BLZ:'Bleskozvod a uzemnenie',SLP:'Slaboprúd',EPS:'Elektrická požiarna signalizácia',
+ DOP:'Dopravné riešenie',KRA:'Sadové a terénne úpravy',EHB:'Energetické hodnotenie',
+ IGP:'Inžinierskogeologický prieskum',HGP:'Hydrogeologické posúdenie',HLU:'Hluková štúdia',
+ SZS:'Správa o prerokovaní stavebného zámeru',POV:'Plán organizácie výstavby',
+ DEN:'Dendrologické posúdenie',EIA:'Posúdenie vplyvov na životné prostredie'
+};
+const stagePackages={
+ PSO:{selected:[],help:'Pri ohlásení vyber PBS, statiku alebo inú profesiu podľa toho, čo je potrebné na posúdenie stavby. Príloha č. 14.'},
+ SZP:{selected:['PBS'],help:'Požiarne riešenie je predvolené. Ďalšie profesie, prieskumy a posúdenia vyber podľa charakteru stavby. Príloha č. 15.'},
+ SZZ:{selected:[],help:'Vyber len časti, ktorých sa zmena zámeru týka, vrátane PBS, ak sa mení požiarne riešenie.'},
+ PSP:{selected:['PBS','STA','ZTI','VYK','VZT','ELI','BLZ','SLP'],help:'Základný rozsah sa prispôsobuje typu stavby a technickému vybaveniu. Príloha č. 17.'},
+ PSZ:{selected:[],help:'Pri zmene projektu vyber dotknuté profesie a prílohy.'},
+ VPP:{selected:['PBS','STA','ZTI','VYK','VZT','ELI','BLZ','SLP'],help:'Vyber časti, ktoré sa vo vykonávacom projekte dopĺňajú alebo spresňujú. Príloha č. 18.'}
+};
+const projectProfiles={
+ general:{label:'Budova – zatiaľ bez bližšieho určenia',codes:['STA','ZTI','VYK','VZT','ELI','BLZ','SLP']},
+ house:{label:'Rodinný dom (1 až 3 byty)',codes:['STA','ZTI','VYK','ELI','BLZ']},
+ apartments:{label:'Bytový dom alebo polyfunkčná budova',codes:['STA','ZTI','VYK','VZT','ELI','BLZ','SLP','EHB']},
+ office:{label:'Administratíva, obchod alebo ubytovanie',codes:['STA','ZTI','VYK','VZT','ELI','BLZ','SLP','EHB']},
+ warehouse:{label:'Sklad alebo výrobná hala',codes:['STA','ELI','BLZ']},
+ minor:{label:'Drobná stavba, prístrešok alebo garáž',codes:[]},
+ infrastructure:{label:'Cesta, parkovisko alebo prípojka',codes:[]}
+};
+const featurePackages={
+ ZTI:'Vodovod alebo kanalizácia',VYK:'Vykurovanie',VZT:'Nútené vetranie alebo chladenie',
+ PLY:'Plynová inštalácia',ELI:'Elektroinštalácia',BLZ:'Bleskozvod alebo uzemnenie',
+ SLP:'Slaboprúdové rozvody',EPS:'Elektrická požiarna signalizácia',
+ PBS:'Treba spracovať alebo upraviť požiarne riešenie',STA:'Zásah do nosných konštrukcií',
+ DOP:'Dopravné napojenie alebo parkovanie',KRA:'Sadové alebo terénne úpravy',
+ IGP:'Treba inžinierskogeologický prieskum',HGP:'Treba riešiť podzemnú vodu alebo vsakovanie',
+ HLU:'Treba posúdiť hluk',DEN:'Treba posúdiť dreviny',EIA:'Vyžaduje sa posúdenie vplyvov na životné prostredie',
+ EHB:'Treba energetické hodnotenie',POV:'Treba plán organizácie výstavby'
+};
+function profileForClass(code){
+  if(/^111[123]$/.test(code))return 'house';
+  if(code==='1120')return 'apartments';
+  if(/^12[123]/.test(code))return 'office';
+  if(/^13[12]/.test(code))return 'warehouse';
+  if(/^151/.test(code))return 'minor';
+  if(/^2/.test(code))return 'infrastructure';
+  return 'general';
+}
+$('wizardTypeList').replaceChildren(...Object.values(projectProfiles).map(p=>{const o=document.createElement('option');o.value=p.label;return o}));
+function profileForText(text){
+  const t=text.trim();if(!t)return {key:'general',code:''};
+  const exact=Object.entries(projectProfiles).find(([,p])=>normalize(p.label)===normalize(t));
+  if(exact)return {key:exact[0],code:''};
+  const best=matchesClass(t)[0];
+  return best?{key:profileForClass(best.code),code:best.code,title:best.title}:{key:'general',code:''};
+}
+function applyWizardType(){
+  const r=profileForText($('wizardType').value);
+  wizardFields.profile.value=r.key;
+  $('wizardTypeHint').textContent=$('wizardType').value.trim()?'Návrh profesií: '+projectProfiles[r.key].label+(r.code?' · možná trieda '+r.code+' '+r.title:''):'';
+  setWizardPackages();
+}
+for(const [code,name] of Object.entries(featurePackages)){
+  const label=document.createElement('label'), cb=document.createElement('input');
+  cb.type='checkbox';cb.name='feature';cb.value=code;label.append(name,cb);$('wizardFeatures').append(label);
+}
+options($('wizardStage'),split(stages).filter(([code])=>Object.hasOwn(stagePackages,code)));
+function setWizardPackages(){
+  const stage=wizardFields.stage.value;
+  const config=stagePackages[stage];
+  $('wizardStageHelp').textContent=config.help+' Zaškrtnuté položky sú návrh na potvrdenie. Pri zmene vstupov sa návrh prepočíta.';
+  const reasons=new Map();
+  const profile=projectProfiles[wizardFields.profile.value];
+  for(const code of (['PSP','VPP'].includes(stage)?['PBS',...profile.codes]:config.selected))reasons.set(code,code==='PBS'?'Podľa stupňa':'Podľa typu stavby');
+  for(const code of new FormData(wizard).getAll('feature'))reasons.set(code,'Podľa zadaného vybavenia alebo podmienky');
+  const complexFoundation=Number(wizardFields.below.value)>=2&&['SZP','PSP','VPP'].includes(stage);
+  if(complexFoundation&&!reasons.has('IGP'))reasons.set('IGP','Na zváženie pri dvoch alebo viacerých podzemných podlažiach');
+  $('packageCount').textContent='('+reasons.size+' navrhnutých)';
+  $('wizardPackages').replaceChildren(...Object.entries(packageLabels).map(([code,label])=>{
+    const field=document.createElement('label'), checkbox=document.createElement('input');
+    checkbox.type='checkbox';checkbox.name='package';checkbox.value=code;checkbox.checked=reasons.has(code);
+    field.append(label,checkbox);
+    if(reasons.has(code))addText(field,'small',reasons.get(code));
+    return field;
+  }));
+}
+let wizardObjectList=[];
+function readWizardObjects(){
+  return Array.from($('wizardObjects').children).map(row=>({
+    name:row.querySelector('input').value,
+    trade:row.querySelector('select').value,
+    sheets:row.querySelector('input[type=checkbox]')?.checked||false
+  }));
+}
+function wizardObjects(){
+  const count=Number(wizardFields.count.value);
+  if(!Number.isInteger(count)||count<1||count>99)return;
+  readWizardObjects().forEach((entry,i)=>{wizardObjectList[i]=entry});
+  $('wizardObjects').replaceChildren(...Array.from({length:count},(_,i)=>{
+    const obj=wizardObjectList[i]||{name:i===0?'Hlavný objekt':'',trade:'ASR',sheets:false};
+    const row=document.createElement('div'), label=document.createElement('label'), name=document.createElement('input');
+    const part='S'+pad(i+1,2);
+    label.append(part,name);name.value=obj.name;name.placeholder='Názov objektu';name.maxLength=85;row.append(label);
+    const trade=document.createElement('select');
+    options(trade,split(professions));trade.value=obj.trade;trade.setAttribute('aria-label','Profesia '+part);row.append(trade);
+    if(i>0){
+      const make=document.createElement('label'), cb=document.createElement('input');
+      cb.type='checkbox';cb.checked=obj.sheets;make.append('Pripraviť listy pre '+part,cb);row.append(make);
+    }
+    return row;
+  }));
+}
+wizardFields.name.value=state.project.name;
+wizardFields.stage.value=Object.hasOwn(stagePackages,state.project.stage)?state.project.stage:'SZP';
+wizardFields.profile.value='general';
+wizardFields.situations.value=2;
+wizardFields.sections.value=1;
+wizardFields.elevations.value=4;
+wizardFields.roof.checked=true;
+wizardObjects();
+setWizardPackages();
+wizardFields.count.onchange=wizardObjects;
+wizardFields.stage.onchange=setWizardPackages;
+$('wizardType').oninput=applyWizardType;
+wizardFields.below.onchange=setWizardPackages;
+$('wizardFeatures').onchange=setWizardPackages;
+
+function draftWizard(){
+  wizardObjects();
+  const objects=readWizardObjects();
+  const f=wizardFields, main=objects[0].trade;
+  const draft=[];
+  const item=(part,trade,kind,title)=>draft.push({part,trade,kind,title,cad:'',rev:'00'});
+  item('A00','AAA','','Zoznam dokumentácie');
+  item('B00','SPR','','Súhrnná správa');
+  const sit=['Situácia zastavania','Koordinačná situácia','Situácia zelene'];
+  for(let i=0;i<Number(f.situations.value);i++)item('C00','SIT','',sit[i]||('Situácia '+(i+1)));
+  const floors=(trade,prefix)=>{
+    for(let n=Number(f.below.value);n>0;n--)item('S01',trade,'P'+pad(n,2),prefix+'Pôdorys '+n+'. PP');
+    for(let n=1;n<=Number(f.above.value);n++)item('S01',trade,'N'+pad(n,2),prefix+'Pôdorys '+n+'. NP');
+    if(f.roof.checked)item('S01',trade,'VYS',prefix+'Strecha');
+  };
+  floors(main,'');
+  for(let n=1;n<=Number(f.sections.value);n++)item('S01',main,'REZ','Rez '+(n<=26?String.fromCharCode(64+n):n));
+  const views=['Južný','Severný','Východný','Západný'];
+  for(let n=0;n<Number(f.elevations.value);n++)item('S01',main,'POH',views[n]?views[n]+' pohľad':'Pohľad '+(n+1));
+  if(f.detail.checked)item('S01',main,'DET','Konštrukčný detail');
+  if(f.schedules.checked){
+    item('S01',main,'VVZ','Výkaz výrobkov a zariadení');
+    item('S01',main,'VYV','Výkaz výmer');
+  }
+  const packages=new FormData(wizard).getAll('package');
+  if(f.electric.checked&&!packages.includes('ELI')&&main!=='ELI')packages.push('ELI');
+  for(const code of packages){
+    if(inList(annexes,code)){
+      const label=code==='PBS'?'Riešenie protipožiarnej bezpečnosti – '+{
+        PSO:'ohlásenie',SZP:'stavebný zámer',SZZ:'zmena stavebného zámeru',PSP:'projekt stavby',PSZ:'zmena projektu stavby',VPP:'vykonávací projekt'
+      }[f.stage.value]:packageLabels[code];
+      item('E00',code,'',label);
+    }else{
+      item('S01',code,'TXT',code==='ELI'?'Elektroinštalácia – technická správa':packageLabels[code]+' – technická správa');
+      if(code==='STA'&&['PSP','VPP'].includes(f.stage.value))item('S01','STA','STV','Kontrolovateľný statický výpočet');
+    }
+  }
+  if(f.electric.checked&&main!=='ELI')floors('ELI','Elektroinštalácia – ');
+  objects.slice(1).forEach((entry,i)=>{
+    if(!entry.sheets)return;
+    const part='S'+pad(i+2,2), label=entry.name.trim()||'Objekt '+part;
+    item(part,entry.trade,'TXT',label+' – technická správa');
+    item(part,entry.trade,'SIT',label+' – situácia');
+    item(part,entry.trade,'SCH',label+' – schéma');
+  });
+  return draft;
+}
+function showWizardPreview(){
+  const draft=draftWizard(), preview=$('wizardPreview');
+  const name=wizardFields.name.value.trim();
+  ensure(name,'Zadaj interný názov.');
+  const originalProject=state.project;
+  const existing=originalProject.name;
+  const project={...(existing?state.project:blank().project),name,stage:wizardFields.stage.value};
+
+  ensure(!existing||name===existing,'Pre iný názov projektu najprv použi tlačidlo Nový projekt.');
+  projectValid(project);
+  preview.replaceChildren();
+  addText(preview,'h3','Návrh pre '+name);
+  const list=document.createElement('div');
+  list.style.cssText='max-height:320px;overflow:auto;border:1px solid #d6e2dd;padding:10px';
+  const choices=draft.map(e=>{
+    const label=document.createElement('label'), cb=document.createElement('input');
+    cb.type='checkbox';cb.checked=true;label.style.cssText='display:flex;align-items:start;gap:.6em';
+    label.append(cb,document.createTextNode([e.part,e.trade,e.title].join(' · ')));list.append(label);
+    return cb;
+  });
+  addText(preview,'p',draft.length+' návrhov. Odškrtni listy, ktoré nepotrebuješ. Už pridané položky sa preskočia.');
+  const apply=action('Pridať vybrané listy',()=>{
+    ensure(state.project===originalProject,'Projekt sa medzičasom zmenil. Zobraz návrh listov znova.');
+    const items=state.items.slice();
+    let nextId=state.nextId;
+    draft.forEach((e,i)=>{
+      if(!choices[i].checked||items.some(x=>x.part===e.part&&x.trade===e.trade&&x.kind===e.kind&&(x.title===e.title||['A00','B00'].includes(e.part)||e.kind==='TXT'||(e.part==='E00'&&e.trade==='PBS'))))return;
+      const row={...e,id:nextId,seq:e.kind==='TXT'?'000':''};
+      row.seq=allocate(items,row,'');
+      validateItem(row);unique(items,row);items.push(row);nextId++;
+    });
+    const added=items.length-state.items.length;
+    const stageChanged=Boolean(existing&&project.stage!==originalProject.stage);
+    ensure(added>0||stageChanged,'Vyber aspoň jeden nový list.');
+    state={...state,project,items,nextId};preview.replaceChildren();
+    const typed=$('wizardType').value.trim();
+    if(typed&&!$('classQuery').value.trim()){$('classQuery').value=typed;$('classQuery').dispatchEvent(new Event('input'))}
+    setWizardStep(0);
+    fill();if(save())message((stageChanged?'Stupeň uložený. ':'')+'Pridané listy: '+added+'.'+(!project.portal?' ID môžeš doplniť neskôr.':''));
+    $('register').scrollIntoView({block:'start'});
+  });
+  apply.className='primary';
+  const controls=document.createElement('div');controls.className='actions';controls.append(apply);
+  preview.append(list,controls);
+}
+
+
+let wizardStep=0;
+const panels=['wizardBasics','wizardScope','wizardReview'];
+function setWizardStep(step){
+  wizardStep=step;
+  panels.forEach((id,i)=>{$(id).hidden=i!==step});
+  document.querySelectorAll('.steps li').forEach((node,i)=>{
+    if(step===i)node.setAttribute('aria-current','step');
+    else node.removeAttribute('aria-current');
+  });
+  $('wizardBack').hidden=step===0;
+  $('wizardNext').hidden=step===2;
+  $('wizardNext').textContent=step===0?'Pokračovať na rozsah':'Zobraziť návrh listov';
+  $('wizardNotice').textContent='';
+}
+$('wizardBack').onclick=()=>setWizardStep(wizardStep-1);
+wizard.noValidate=true;
+wizard.onsubmit=event=>{
+  event.preventDefault();
+  if(wizardStep===2)return;
+  const invalid=Array.from($(panels[wizardStep]).querySelectorAll('input,select')).find(el=>!el.checkValidity());
+  if(invalid){
+    const details=invalid.closest('details');if(details)details.open=true;
+    invalid.reportValidity();return;
+  }
+  try{
+    if(wizardStep===0){
+      ensure(wizardFields.name.value.trim(),'Napíš interný názov projektu.');
+      if(state.project.name)ensure(wizardFields.name.value.trim()===state.project.name,'Pre iný projekt použi „Nový projekt“ v nastaveniach.');
+      setWizardStep(1);
+    }else{
+      showWizardPreview();
+      setWizardStep(2);
+    }
+    $('wizard').scrollIntoView({block:'start'});
+  }catch(error){$('wizardNotice').textContent=error.message}
+};
+$('wizardPackages').onchange=()=>{
+  const count=$('wizardPackages').querySelectorAll('input:checked').length;
+  $('packageCount').textContent='('+count+' vybraných)';
+};
+document.querySelector('.quick-links a[href="#dst-panel"]').onclick=()=>{$('dst-panel').open=true};
+document.querySelector('.quick-links a[href="#project-settings"]').onclick=()=>{$('project-settings').open=true};
+setWizardStep(0);
+
+</script></html>
+
+
+
+
+
+
+
