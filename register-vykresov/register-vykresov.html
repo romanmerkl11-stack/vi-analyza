@@ -94,7 +94,7 @@ footer{margin:20px 0} ol,ul{padding-left:1.4em}
 </div></details><div class="actions"><button class="primary">Pridať výkres</button></div></form>
 </section>
 <section id="register"><h2>Register a odovzdanie</h2><form id="portalForm"><label>ID stavby z Portálu<input name="portal" placeholder="XXXXXXX" aria-describedby="portalHint" pattern="[A-Za-z0-9]{1,32}"></label><div class="actions"><button>Uložiť ID</button></div><p id="portalHint">XXXXXXX znamená, že ID ešte nemáš. Doplň ho až pri odovzdaní.</p></form><p>Zobrazenie je zoradené podľa časti a typu výkresu. Podlažia idú od najnižšieho po najvyššie, potom strecha, rezy a pohľady. Nový výkres dostane ďalšie voľné číslo vo svojej skupine. Zmena revízie zachová číslo aj interný názov DWG. Číselník stavieb je vo verzii do 31. 12. 2026.</p><p id="status" role="status"></p>
-<div class="actions"><button id="csv">Export CSV</button><button id="names">Export názvov PDF</button></div>
+<div class="actions"><button id="csv">Export CSV</button><button id="names">Export názvov PDF</button><button id="titleblock">Export pre rozpisku (AutoCAD)</button></div><p><small>Export pre rozpisku vytvorí súbor <code>rozpiska.csv</code>. V AutoCADe ho načíta príkaz <code>ROZPISKA</code> zo súboru <code>rozpiska.lsp</code> a vyplní atribúty rozpisky v každom layoute.</small></p>
 <div class="scroll"><table><thead><tr><th>List / dokument</th><th>Názvy súborov</th><th>Revízia a akcie</th></tr></thead><tbody id="rows"></tbody></table></div></section>
 <section id="dwg-guide"><h2>Ako číslovať a pomenovať DWG</h2><ol><li><strong>Pôdorysy.</strong> Pre objekt S01 použi <code>S01_N01.dwg</code> pre 1. NP a <code>S01_N02.dwg</code> pre 2. NP. N01 a N02 označujú podlažia. Poradové číslo listu pridelí register.</li><li><strong>Rezy, pohľady a detaily.</strong> Prvý pohľad môže byť <code>S01_POH.dwg</code>. Pri druhom pohľade register doplní interné číslo listu, napríklad <code>S01_POH_005.dwg</code>. Prvý súbor ostane <code>S01_POH.dwg</code>. Pridaný detail môžeš v SSM zobraziť medzi staršími listami bez ich prečíslovania.</li><li><strong>Viac layoutov v jednom DWG.</strong> Napríklad <code>S01_REZ.dwg</code> môže obsahovať layouty <code>005_REZ</code> a <code>006_REZ</code>. Každý layout eviduj ako samostatný list. Pri existujúcich listoch zapíš pôvodný DWG a layout do rozšírených údajov.</li><li><strong>Revízia a odovzdanie.</strong> Zachovaj pracovný DWG a číslo listu. Pri oprave zvýš revíziu v registri. Po doplnení ID nástroj poskladá celý názov PDF vrátane revízie.</li></ol><p>Pri zadaní <code>S01_N01.dwg</code> register vyplní objekt S01 a pôdorys 1. NP. Poradie pridelí sám a prvé vydanie nastaví na 00. Stupeň, poradie stavby, triedu a predvolenú profesiu preberie z projektu. Pri inej profesii ju vyber na danom liste.</p></section><details><summary>Pokročilé nastavenie AutoCADu a SSM</summary>
 <p>Príloha č. 24 rozlišuje ID stavby, stupeň, poradie stavby, triedu, časť, profesiu alebo podrobné členenie, poradie, typ a revíziu. Prvé vydanie tento nástroj zapisuje bez koncovky _00. A00 a B00 používajú skrátené tvary podľa príkladov, C00 má poradie a E00 podľa okolností poradie používa. Pri objektoch alebo prevádzkových súboroch rezervuje 000 pre zoznam a technickú správu.</p>
@@ -351,6 +351,24 @@ $('csv').onclick=()=>{
   const rows=[['List','Názov','Revízia','Výkres','Odporúčaný DWG','Skutočný DWG / layout','PORTAL_CODE','PDF'],
     ...state.items.map(e=>[sheetNumber(e),e.title,e.rev,suffix(e),internal(e),e.cad,ready?code(p,e):'',ready?code(p,e)+'.pdf':''])];
   file('register-vykresov.csv','\ufeff'+rows.map(r=>r.map(quote).join(';')).join('\r\n'),'text/csv;charset=utf-8');
+};
+const acadText=v=>Array.from(String(v)).map(ch=>{const c=ch.codePointAt(0);return c<128?ch:'\\U+'+c.toString(16).toUpperCase().padStart(4,'0')}).join('');
+const acadCell=v=>'"'+acadText(v).replace(/[\r\n;]+/g,' ').replaceAll('"','""')+'"';
+function dwgLayout(e){
+  const parts=e.cad.split(' / ').map(x=>x.trim());
+  if(parts.length>1&&/\.dwg$/i.test(parts[0]))return [parts[0].split(/[\\/]/).pop(),parts.slice(1).join(' / ')];
+  if(/\.dwg$/i.test(e.cad.trim()))return [e.cad.trim().split(/[\\/]/).pop(),''];
+  return [internal(e),e.cad.trim()];
+}
+$('titleblock').onclick=()=>{
+  if(!state.items.length){message('Register je prázdny. Najprv pridaj listy.');return}
+  const p=state.project;
+  const stage=(split(stages).find(([c])=>c===p.stage)?.[1]||'').slice(p.stage.length+1);
+  const work={...p,portal:p.portal||pendingId,classification:p.classification||'XXXX'};
+  const rows=[['DWG','LAYOUT','CISLO_VYKRESU','NAZOV_VYKRESU','KOD','STUPEN','STUPEN_NAZOV','OBJEKT','CAST','REVIZIA','LIST','STAVBA'],
+    ...state.items.map(e=>[...dwgLayout(e),suffix(e),e.title,code(work,e),p.stage,stage,e.part,e.trade,e.rev,sheetNumber(e),p.name])];
+  file('rozpiska.csv',rows.map(r=>r.map(acadCell).join(';')).join('\r\n')+'\r\n','text/csv;charset=us-ascii');
+  message('Export pre rozpisku: '+state.items.length+' listov. V AutoCADe spusti príkaz ROZPISKA.');
 };
 $('names').onclick=()=>file('nazvy-pdf.txt',state.items.map(e=>code(state.project,e)+'.pdf').join('\r\n')+'\r\n');
 fill();if(initMessage)message(initMessage);
